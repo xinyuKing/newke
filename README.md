@@ -1,694 +1,543 @@
-## 工具类
+# Newke 融合社区与商城微服务平台
 
-MailClient:发送邮件（只需要输入对方邮箱，标题和内容就可以发送）
+## 项目介绍
 
-CommunityUtil:生成随机字符串，md5加密，生成返回的json字符串（通过不同的参数重载成3个）
+这是一个把论坛社区和电商商城放进同一仓库的融合项目。
 
-RedisKeyUtil:生成reids的key
+论坛侧保留了原来的社区能力，包括注册登录、帖子发布、评论回复、点赞关注、私信通知、媒体上传、站点统计、热帖刷新、搜索和分享。商城侧按业务域拆成认证、商品、库存、订单、购物车、客服、网关等服务，覆盖从登录、浏览商品、加入购物车、下单、库存扣减到售后支持的一整条链路。
 
-HostHolder:持有用户信息，用于代替用户对象
+这套仓库现在最有意思的地方，不是单纯把两个项目放在一起，而是已经把用户系统打通了。商城的 `auth-service` 不再自己独立维护一套主账号体系，而是通过论坛侧的 `community-user-service` 完成注册和登录，再把社区用户同步成商城本地账号，并继续签发 JWT 给商城各服务使用。换句话说，论坛账号已经是商城账号的上游身份源。
 
-SensitiveFilter:敏感词过滤，创建前缀树的内部生成类，读取敏感词的txt文档，生成前缀树对象，通过生成的前缀树过滤敏感词
+当前仓库仍然处在“能跑、能联调、但还没完全统一治理”的阶段。论坛侧偏 Spring Boot 2.7 / MyBatis / Nacos，商城侧偏 Spring Boot 3.3 / JPA / JWT。两边已经整合到一个代码仓库里，但在构建体系、端口规划、初始化脚本这些方面，还保留着明显的过渡痕迹。README 会把这些情况写清楚，方便你部署、展示和继续迭代。
 
-CommunityConstant:定义常数的接口
+## 仓库结构
 
-
-
-## 首页
-
-```java
-@RequestMapping(path = "/index",method = RequestMethod.GET)
+```text
+newke
+├─ community-common              # 论坛公共模块
+├─ community-user-service        # 论坛用户服务
+├─ community-post-service        # 论坛主站、帖子、评论、搜索、分享
+├─ community-message-service     # 论坛消息服务
+├─ community-social-service      # 论坛点赞、关注
+├─ community-media-service       # 论坛媒体上传
+├─ community-data-service        # 论坛 UV / DAU 统计
+├─ community-gateway             # 论坛网关骨架，当前仍是预留模块
+├─ common                        # 商城公共模块
+├─ auth-service                  # 商城认证与账户资料
+├─ product-service               # 商城商品与评价
+├─ inventory-service             # 商城库存
+├─ order-service                 # 商城订单
+├─ cart-service                  # 商城购物车
+├─ support-service               # 商城客服与售后
+├─ gateway-service               # 商城统一网关
+├─ frontend                      # Vue 3 前端
+├─ pom.xml                       # 仓库根聚合 POM
+└─ README.md
 ```
 
-get请求分页展示的帖子（有最新和最热两种）：创建Page类（当前页码，一页的上限，数据的总行数（用于计算总的页数），查询路径（用于复用分页的链接））,通过Page计算出的offset和limit查询出帖子列表（查询帖子分为两种，最新：直接查询数据库；最热：DiscussPostService的Bean实例化后执行init()初始化帖子列表缓存，从数据库中读取最热的帖子，把这些帖子保存到Caffeine，因为最热帖子是通过score（打分依靠自己的评判标准）进行排名的，而这些分数会产生变化，所以我们可以使用quartz对帖子进行定期的刷新,例如:我们5分钟刷新一次），
+## 子系统总览
 
-```java
-//刷新帖子分数任务
-@Bean
-public JobDetailFactoryBean postScoreRefreshJobDetail(){
-    JobDetailFactoryBean factoryBean=new JobDetailFactoryBean();
-    factoryBean.setJobClass(PostScoreRefreshJob.class);
-    factoryBean.setName("postScoreRefreshJob");
-    factoryBean.setGroup("postScoreRefreshJobGroup");
-    factoryBean.setDurability(true);
-    factoryBean.setRequestsRecovery(true);
-    return factoryBean;
-}
+### 论坛侧模块
 
-@Bean
-public SimpleTriggerFactoryBean postScoreRefreshTrigger(JobDetail postScoreRefreshJobDetail){
-    SimpleTriggerFactoryBean factoryBean=new SimpleTriggerFactoryBean();
-    factoryBean.setJobDetail(postScoreRefreshJobDetail);
-    factoryBean.setName("postScoreRefreshTrigger");
-    factoryBean.setGroup("communityTriggerGroup");
-    factoryBean.setRepeatInterval(1000*60*5);
-    factoryBean.setJobDataMap(new JobDataMap());
-    return factoryBean;
-}
+| 模块 | 默认端口 | 作用 | 关键依赖 |
+| --- | --- | --- | --- |
+| `community-post-service` | `8080` | 论坛主站入口，负责帖子、评论、搜索、分享、Thymeleaf 页面渲染 | MySQL `study`、Redis、Kafka、Elasticsearch、Quartz、邮件、七牛云、wkhtmltoimage |
+| `community-user-service` | `8081` | 注册、登录、验证码、激活、密码修改、头像修改、论坛用户资料 | MySQL `study`、Redis、邮件、Nacos |
+| `community-message-service` | `8082` | 私信、系统通知、消息详情、分享相关能力 | MySQL `study`、Kafka、Elasticsearch、Nacos、七牛云、wkhtmltoimage |
+| `community-social-service` | `8083` | 点赞、关注、粉丝、关注列表 | Redis、Kafka、Nacos |
+| `community-media-service` | `8084` | 图片和视频上传、媒体类型校验、媒体目录管理 | Redis、Nacos、本地文件目录 |
+| `community-data-service` | `8085` | UV / DAU 统计与后台数据面板 | Redis、Nacos |
+| `community-gateway` | 未配置 | 论坛网关骨架，当前只有启动类，没有完整路由配置 | Spring Cloud Gateway、Nacos |
+| `community-common` | 无 | 论坛公共实体、工具类、统一响应结构 | 被论坛服务依赖 |
+
+### 商城侧模块
+
+| 模块 | 默认端口 | 作用 | 关键依赖 |
+| --- | --- | --- | --- |
+| `gateway-service` | `8080` | 商城统一网关，负责 `/api/**` 路由、JWT 校验、限流、熔断 | Redis |
+| `auth-service` | `18081` | 商城登录、注册、JWT 签发、个人资料、地址管理 | MySQL `ecommerce_auth`、论坛用户服务 |
+| `product-service` | `18082` | 商品、评价、搜索、推荐、评价摘要与统计 | MySQL `ecommerce_product`、Redis、RabbitMQ、库存服务、可选 OpenSearch |
+| `inventory-service` | `18083` | 库存初始化、扣减、释放、批量库存操作 | MySQL `ecommerce_inventory`、Redis、Lua |
+| `order-service` | `18084` | 下单、取消、支付、发货、收货、物流、订单事件 | MySQL `ecommerce_order`、Redis、RabbitMQ、商品服务、库存服务 |
+| `cart-service` | `18085` | 购物车增删改查、结算、转订单 | MySQL `ecommerce_cart`、Redis、商品服务、订单服务 |
+| `support-service` | `18086` | 客服对话、售后单、退款意图识别、退款规则与模型配置 | MySQL `ecommerce_support`、Redis |
+| `common` | 无 | 商城公共 DTO、安全组件、异常和统一响应 | 被商城服务依赖 |
+
+### 前端模块
+
+| 模块 | 默认端口 | 作用 |
+| --- | --- | --- |
+| `frontend` | `5173` | Vue 3 + Vite 前端开发入口，默认代理论坛主站后端 |
+
+## 用户系统融合说明
+
+这是目前整个仓库最关键的一条整合链路。
+
+1. 论坛用户服务开放了内部认证接口：
+   - `POST /community/api/auth/login`
+   - `POST /community/api/auth/register`
+2. 商城 `auth-service` 中的 `CommunityUserClient` 会调用论坛用户服务完成注册和登录。
+3. 商城登录成功后，会把论坛用户同步到本地 `user_account` 表，并直接使用论坛用户 ID 作为商城用户 ID。
+4. 商城侧再基于这个统一用户签发 JWT，由 `gateway-service` 统一解析，并透传 `X-User-Id`、`X-User-Role` 给下游服务。
+
+这意味着论坛和商城已经共享主账号身份，不是两套互相独立的用户系统。
+
+### 当前角色映射
+
+商城 `auth-service` 里对论坛角色做了一个简单映射：
+
+| 论坛用户 `type` | 商城角色 |
+| --- | --- |
+| `0` | `USER` |
+| `1` | `ADMIN` |
+| `2` | `SUPPORT` |
+
+也就是说，论坛侧的版主角色目前在商城侧会被映射成客服/支持角色。如果后面你想改成 `MERCHANT` 或者单独新增映射逻辑，需要继续调整 `auth-service`。
+
+## 项目亮点
+
+### 1. 同仓库融合两套业务系统
+
+这不是单一论坛，也不是单一商城，而是把“内容社区”和“交易系统”放进了一个仓库里。社区负责内容、关系、互动和用户沉淀，商城负责商品、库存、订单和售后，两边既能单独运行，也能围绕统一账号逐步联动。
+
+### 2. 用户体系已经完成第一阶段打通
+
+账号不再重复注册。商城认证服务已经接到论坛用户服务上，社区用户就是商城用户的身份源，登录注册逻辑不需要再维护两份。这一步很关键，因为后续无论做“帖子带货”“用户画像联动”“社区账号直达商城订单页”，都建立在统一身份之上。
+
+### 3. 论坛侧功能相对完整
+
+论坛部分不是一个只剩登录和发帖的壳，而是已经覆盖了比较完整的社区能力：
+
+- 注册、激活、验证码、登录、退出
+- 发帖、评论、回复、帖子详情页
+- 点赞、关注、粉丝与关注列表
+- 私信、系统通知
+- 搜索、分享、热帖分数刷新
+- 媒体上传和数据统计
+
+这部分还保留了传统站点风格的服务端渲染页面，适合做教学、答辩和演示。
+
+### 4. 商城侧按业务域拆分得比较清楚
+
+商城不是“大单体商城”写法，而是按认证、商品、库存、订单、购物车、客服拆成独立服务。每个服务只关心自己的业务边界，比如库存服务只管库存一致性，订单服务只管下单流转和状态机，商品服务只管商品和评价，这样后面继续扩展时比较顺手。
+
+### 5. 库存与订单链路考虑了并发问题
+
+库存服务使用 Redis + Lua 脚本做扣减，订单服务也做了批量调用、状态机和事件发布，说明这个项目不是只做“接口能通”，而是已经开始考虑热点场景下的数据一致性和吞吐问题。
+
+### 6. 商城侧有比较明显的性能优化意识
+
+商城部分已经放进了一些很实用的工程化手段：
+
+- 批量商品查询和批量库存扣减，减少跨服务调用次数
+- Caffeine 本地缓存，降低热点读取开销
+- RabbitMQ 异步化评价统计、订单事件和索引更新
+- Resilience4j 熔断、重试、舱壁隔离
+- Micrometer + Prometheus 指标暴露
+
+这些东西不是为了堆名词，而是能看出作者已经在往“真实系统”方向推。
+
+### 7. AI 相关能力不是装饰项
+
+论坛 `community-post-service` 里已经预留了兼容 OpenAI 的内容审核配置，商城 `support-service` 里也有退款意图识别、RAG 资料库和多模型配置。这部分还谈不上完整产品化，但已经不是单纯写在 README 里的概念，而是进入了代码和配置层。
+
+### 8. 同时保留传统页面和前后端分离入口
+
+论坛侧目前既有基于 Thymeleaf 的页面，也有 `frontend` 里的 Vue 3 前端。前者适合快速演示和现成页面复用，后者适合后续继续前后端分离改造。
+
+## 技术栈
+
+### 论坛侧
+
+- Java 11
+- Spring Boot 2.7.18
+- Spring Cloud 2021
+- Spring Cloud Alibaba Nacos
+- OpenFeign
+- MyBatis
+- Redis
+- Kafka
+- Elasticsearch
+- Quartz
+- Thymeleaf
+- Caffeine
+- Qiniu
+- wkhtmltoimage
+
+### 商城侧
+
+- Java 17
+- Spring Boot 3.3.2
+- Spring Cloud 2023
+- Spring Security
+- JWT
+- Spring Data JPA
+- Redis
+- RabbitMQ
+- Caffeine
+- Resilience4j
+- Micrometer / Prometheus
+- 可选 OpenSearch
+
+### 前端
+
+- Vue 3
+- Vite
+- Pinia
+- Vue Router
+- Axios
+
+## 部署前准备
+
+### 1. 基础环境
+
+建议准备下面这些基础组件：
+
+- JDK 17
+- Maven 3.8+
+- Node.js 18+
+- MySQL 8.x
+- Redis 6.x 或更高
+- Kafka
+- Nacos 2.x
+- RabbitMQ 3.x
+
+可选但强烈建议准备：
+
+- Elasticsearch 或 OpenSearch
+- wkhtmltoimage
+- 邮箱 SMTP 服务
+- 七牛云对象存储
+
+### 2. 数据库
+
+本仓库里当前没有现成的 SQL 初始化脚本，因此要区分两类情况：
+
+- 商城侧大多数服务使用 `spring.jpa.hibernate.ddl-auto=update`，只要数据库存在，服务启动后可以自动建表或更新表结构。
+- 论坛侧使用 MyBatis，默认依赖现成的 `study` 库表结构。仓库没有附带完整建表 SQL，所以部署论坛时需要你自己准备 `study` 库以及相关表，尤其是用户、帖子、评论、消息、登录凭证、Quartz 调度表等。
+
+建议先手动创建这些数据库：
+
+```sql
+CREATE DATABASE study DEFAULT CHARACTER SET utf8mb4;
+CREATE DATABASE ecommerce_auth DEFAULT CHARACTER SET utf8mb4;
+CREATE DATABASE ecommerce_product DEFAULT CHARACTER SET utf8mb4;
+CREATE DATABASE ecommerce_inventory DEFAULT CHARACTER SET utf8mb4;
+CREATE DATABASE ecommerce_order DEFAULT CHARACTER SET utf8mb4;
+CREATE DATABASE ecommerce_cart DEFAULT CHARACTER SET utf8mb4;
+CREATE DATABASE ecommerce_support DEFAULT CHARACTER SET utf8mb4;
 ```
 
-再通过帖子列表中的每个帖子查询用户和从redis中查询点赞数量，封装成map，再把map加到list中，返回给前端。
+### 3. 配置安全项
 
-分页按钮功能实现：
+当前配置文件里有一些明显不适合直接用于共享环境或生产环境的敏感信息，比如：
 
-```html
-<!-- 分页 -->
-<nav class="mt-5" th:if="${page.rows>0}" th:fragment="pagination">
-   <ul class="pagination justify-content-center">
-      <li class="page-item">
-         <a class="page-link" th:href="@{${page.path}(current=1)}">首页</a>
-      </li>
-      <li th:class="|page-item ${page.current==1?'disabled':''}|">
-         <a class="page-link" th:href="@{${page.path}(current=${page.current-1})}">上一页</a>
-      </li>
-      <li th:class="|page-item ${page.current==i?'active':''}|" th:each="i:${#numbers.sequence(page.from,page.to)}">
-         <a class="page-link" th:href="@{${page.path}(current=${i})}" th:utext="${i}">1</a>
-      </li>
-      <li th:class="|page-item ${page.current==page.total?'disabled':''}|">
-         <a class="page-link" th:href="@{${page.path}(current=${page.current+1})}">下一页</a>
-      </li>
-      <li class="page-item">
-         <a class="page-link" th:href="@{${page.path}(current=${page.total})}">末页</a>
-      </li>
-   </ul>
-</nav>
+- SMTP 用户名和授权码
+- 七牛云 Access Key / Secret Key
+- JWT Secret
+
+本地演示可以先沿用，真正部署或开源前建议全部迁移到环境变量或私有配置中心。
+
+## 部署说明
+
+### 先说结论
+
+当前仓库最稳妥的启动方式，不是“根目录一把梭全部跑起来”，而是按子系统、按模块逐个启动。原因很简单：
+
+- 论坛侧和商城侧的技术栈版本还没有完全统一
+- 论坛主站和商城网关默认都占用 `8080`
+- 论坛库初始化脚本没有在仓库里提供
+
+也就是说，这个仓库已经完成了“代码级整合”和“用户系统融合”，但部署治理还处在过渡阶段。
+
+### 方案一：只启动论坛侧
+
+适合做论坛功能演示、社区模块开发或 Vue 前端联调。
+
+#### 前置依赖
+
+- MySQL：准备 `study`
+- Redis
+- Kafka
+- Nacos
+- 可选：Elasticsearch、wkhtmltoimage、七牛云、SMTP
+
+#### 推荐启动顺序
+
+1. `community-user-service`
+2. `community-message-service`
+3. `community-social-service`
+4. `community-media-service`
+5. `community-data-service`
+6. `community-post-service`
+
+#### 启动命令示例
+
+下面是最直白的模块内启动方式：
+
+```bash
+cd community-user-service
+mvn spring-boot:run
 ```
 
-
-
-## 注册
-
-```java
-@RequestMapping(path = "/register",method = RequestMethod.GET)
+```bash
+cd community-message-service
+mvn spring-boot:run
 ```
 
-get返回注册页面
-
-```java
-@RequestMapping(path = "/register",method = RequestMethod.POST)
+```bash
+cd community-social-service
+mvn spring-boot:run
 ```
 
-post提交注册数据
-
-检查提交数据是否合理
-
-通过JavaMailSender实现邮件发送工具类，发送激活邮件，邮件中包含激活链接（localhost:8080/community/{userId}/{code},发送邮件成功跳转到中转页面，失败跳转到注册页面）
-
-用户激活，在service中，从数据库中读取该用户，并存入redis中（激活成功通过中转页面跳转到登录页面，重复激活通过中转页面跳转到主页，激活失败通过中转页面跳转到注册页面
-
-**再次注册时可能有问题，在注册时要判断该邮箱是否存在已激活的用户，若存在未激活的用户，要先删除再重新注册**
-
-
-
-## 登录
-
-```java
-@RequestMapping(path = "/login",method = RequestMethod.GET)
+```bash
+cd community-media-service
+mvn spring-boot:run
 ```
 
-get返回登录页面
-
-```java
-@RequestMapping(path = "/kaptcha",method = RequestMethod.GET)
+```bash
+cd community-data-service
+mvn spring-boot:run
 ```
 
-通过kaptcha（配置参数写在KaptchaConfig中）生成验证码文本和验证码图片，生成验证码归属（可以通过自己编写的RedisKeyUtil生成redis的key）并存入cookie,将验证码文本并存入redis（并设置其生存时间，例如60s），验证码图片传给浏览器。
-
-```java
-@RequestMapping(path = "/login",method = RequestMethod.POST)
+```bash
+cd community-post-service
+mvn spring-boot:run
 ```
 
-post提交登录数据
+#### 访问入口
 
-controller层从cookie中取出验证码归属，在通过自己编写的RedisKeyUtil生成redis的key，从redis中取出验证码文本和浏览器提交的验证码做对比。
+- 服务端渲染页面：`http://localhost:8080/community`
+- Vue 开发前端：`http://localhost:5173`
 
-controller层将用户名，密码和登录凭证过期时间传给service层，service层验证账号密码（错误时返回封装了Msg的map）后，生成登录凭证（用登录凭证中的ticket生成redis的key）并存入redis中（redis会自动把对象序列化成json字符串，将登录凭证过期时间设置为生存时间）
+#### 前端启动
 
-主页的登录状态通过SpringSecurity实现，设置过滤器LoginTicketInterceptor不过滤静态资源，在LoginTicketInterceptor中的preHandle中先从cookie获取ticket，再通过ticket从redis中查询loginTicket，如果loginTicket有效，根据loginTicket中的userId查询出用户（如果redis中有，直接从redis中取，否则从数据中取，并保存到redis中）。将用户存入hostHolder中，最后构建用户认证的结果，并存入SecurityContext，以便于SpringSecurity进行授权。在SpringSecurity中授权配置中设置一些URL访问需要的权限，分为四种，
-
-```java
-.antMatchers(
-        "/user/setting",
-        "/user/upload",
-        "/discuss/add",
-        "/comment/add/**",
-        "/letter/**",
-        "/notice/**",
-        "/like",
-        "/follow",
-        "/unfollow",
-        "/profile/**"
-).
-hasAnyAuthority(
-        AUTHORITY_USER, //普通用户
-        AUTHORITY_ADMIN, //管理员
-        AUTHORITY_MODERATOR //版主
-)
-.antMatchers(
-        "/discuss/top",
-        "/discuss/wonderful"
-).
-hasAnyAuthority(
-        AUTHORITY_MODERATOR
-)
-.antMatchers(
-        "/discuss/delete",
-        "/data/**",
-        "/actuator/**"
-).
-hasAnyAuthority(
-        AUTHORITY_ADMIN
-)
-.anyRequest().permitAll() // 其他路径未登录用户也可以访问
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-再对权限不足进行处理（分为未有登录和权限不足，这这两种情况还要判断是AJAX请求还是非AJAX请求）
+当前 `frontend/vite.config.js` 默认把 `/api`、`/kaptcha`、`/share` 代理到 `http://localhost:8080/community`，所以论坛主站端口如果改动，前端代理也要一起改。
 
-```java
-.authenticationEntryPoint(new AuthenticationEntryPoint() {
-    // 没有登录
-    @Override
-    public void commence(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, AuthenticationException e) throws IOException, ServletException {
-        // 根据请求是否为 AJAX 请求，以不同的方式响应未经身份验证的用户。对于 AJAX 请求，它发送JSON响应；对于非 AJAX 请求，它将用户重定向到登录页面
-        String xRequestWith = httpServletRequest.getHeader("x-requested-with");
-        if("XMLHttpRequest".equals(xRequestWith)){
-            httpServletResponse.setContentType("application/plain;charset=utf-8");
-            PrintWriter writer = httpServletResponse.getWriter();
-            writer.write(CommunityUtil.getJSONString(403,"您还没有登录!"));
-        }else{
-            httpServletResponse.sendRedirect(httpServletRequest.getContextPath()+"/login");
-        }
-    }
-})
-.accessDeniedHandler(new AccessDeniedHandler() {
-    // 权限不足
-    @Override
-    public void handle(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, AccessDeniedException e) throws IOException, ServletException {
-        // 根据请求是否为 AJAX 请求，以不同的方式响应用户没有访问权限的情况。对于 AJAX 请求，它发送JSON响应；对于非 AJAX 请求，它将用户重定向到错误页面
-        String xRequestWith = httpServletRequest.getHeader("x-requested-with");
-        if("XMLHttpRequest".equals(xRequestWith)){
-            httpServletResponse.setContentType("application/plain;charset=utf-8");
-            PrintWriter writer = httpServletResponse.getWriter();
-            writer.write(CommunityUtil.getJSONString(403,"你没有访问此功能的权限!"));
-        }else{
-            httpServletResponse.sendRedirect(httpServletRequest.getContextPath()+"/denied");
-        }
-    }
-});
+### 方案二：只启动商城侧
+
+适合做商品、订单、库存、售后联调。
+
+#### 前置依赖
+
+- MySQL：准备 `ecommerce_auth`、`ecommerce_product`、`ecommerce_inventory`、`ecommerce_order`、`ecommerce_cart`、`ecommerce_support`
+- Redis
+- RabbitMQ
+- 可选：OpenSearch
+
+#### 一个必须注意的点
+
+商城 `auth-service` 的注册和登录已经依赖论坛用户服务，所以如果你要完整跑商城登录链路，至少还要额外启动：
+
+- `community-user-service`，默认端口 `8081`
+
+#### 推荐启动顺序
+
+1. `community-user-service`
+2. `inventory-service`
+3. `product-service`
+4. `order-service`
+5. `cart-service`
+6. `support-service`
+7. `auth-service`
+8. `gateway-service`
+
+#### 启动命令示例
+
+```bash
+cd auth-service
+mvn spring-boot:run
 ```
 
-实现退出功能,从redis中读出登录凭证，修改状态后再存入,Security底层默认会拦截/logout请求，进行退出处理，所以我们要覆盖它默认的逻辑，才能执行我们自己的退出代码
-
-```java
-http.logout().logoutUrl("/securitylogout");
+```bash
+cd product-service
+mvn spring-boot:run
 ```
 
-**登录功能可能需要改进的地方：一个用户不退出，再用用这个用户登录会产生一个新的登录凭证，所以要先在插入登录凭证前先查询是否有该用户的凭证，有的话（询问其是否顶掉），把status置为1，再插入一个新的登录凭证。**
-
-
-
-## 账号设置
-
-```java
-@RequestMapping(path = "/setting",method = RequestMethod.GET)
+```bash
+cd inventory-service
+mvn spring-boot:run
 ```
 
-将头像保存在七牛云中，配置信息如下：
-
-```java
-# 七牛云
-qiniu.key.access=密钥AK
-qiniu.key.secret=密钥SK
-qiniu.bucket.header.name=自己存放头像的云空间
-qiniu.bucket.header.url=自己存放头像的云空间url
+```bash
+cd order-service
+mvn spring-boot:run
 ```
 
-在get中生成上传文件名称和上传凭证返回给设置页面
-
-在前端通过异步请求将图片发到到七牛云的云存储中
-
-```javascript
-$.ajax({
-    url:"http://upload-cn-east-2.qiniup.com",
-    method: "post",
-    processData: false,
-    contentType: false,
-    data: new FormData($("#uploadForm")[0]),
-    success: function (data) {
-        //自己处理返回的数据，另外别忘记跟新头像访问路径
-    }
-});
+```bash
+cd cart-service
+mvn spring-boot:run
 ```
 
-更改数据库中的头像路径，并把redis中的该用户信息删除（也可以自己改成修改，但不是太必要，因为下次查询该用户时也会把该用户加到redis中）
-
-
-
-## 发布帖子
-
-```java
-@RequestMapping(path = "/add",method = RequestMethod.POST)
-@ResponseBody
+```bash
+cd support-service
+mvn spring-boot:run
 ```
 
-通过post传来的帖子标题和内容，封装成discussPost对象中，并在过service对标题进行敏感词过滤和转义HTML标记(防止注入关键词导致页面变化)，然后插入到数据表中，封装event对象，再触发发帖事件通过kafka将该帖子异步发送到elasticsearch中
-
-```java
-Event event=new Event()
-        .setTopic(TOPIC_PUBLISH)
-        .setUserId(user.getId())
-        .setEntityType(ENTITY_TYPE_COMMENT)
-        .setEntityId(discussPost.getId());
-eventProducer.fireEvent(event);
+```bash
+cd gateway-service
+mvn spring-boot:run
 ```
 
-```java
-//生产者
-//处理事件
-public void fireEvent(Event event){
-    //将事件发送到指定的主题
-    kafkaTemplate.send(event.getTopic(), JSONObject.toJSONString(event));
-}
+#### 默认接口入口
+
+- 商城网关：`http://localhost:8080`
+- 商城认证直连：`http://localhost:18081`
+- 商品服务直连：`http://localhost:18082`
+- 库存服务直连：`http://localhost:18083`
+- 订单服务直连：`http://localhost:18084`
+- 购物车服务直连：`http://localhost:18085`
+- 客服服务直连：`http://localhost:18086`
+
+### 方案三：论坛和商城一起联调
+
+这才是这个仓库真正想实现的效果，但你要先处理端口冲突。
+
+#### 当前冲突
+
+- `community-post-service` 默认 `8080`
+- `gateway-service` 默认 `8080`
+
+两个服务不能直接同时启动。
+
+#### 推荐做法
+
+推荐保留论坛主站 `8080` 不动，把商城网关改成别的端口，比如 `19000`。这样改动成本最低，因为：
+
+- 论坛侧多个地方默认把主站域名写成了 `http://localhost:8080`
+- Vue 前端也默认代理到 `8080/community`
+
+你只需要改商城网关配置：
+
+文件：`gateway-service/src/main/resources/application.yml`
+
+```yaml
+server:
+  port: 19000
 ```
 
-```java
-//消费者
-//监听TOPIC_PUBLISH事件
-@KafkaListener(topics = TOPIC_PUBLISH)
-public void HandlePublish(ConsumerRecord record){
-    if(record==null||record.value()==null){
-        logger.error("消息内容为空！");
-        return;
-    }
-    Event event = JSONObject.parseObject(record.value().toString(), Event.class);
-    if (event==null) {
-        logger.error("消息格式错误！");
-        return;
-    }
-
-    //通过实体类id查询帖子
-    DiscussPost post = discussPostService.findDiscussPostById(event.getEntityId());
-	//发送到ES中
-    elasticsearchService.saveDiscussPost(post);
-}
-```
-
-将刷新分数的帖子id加到redis中，在每次执行刷新帖子任务的时候刷新这些帖子的分数。
-
-```java
-//刷新帖子分数
-@Override
-public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
-    String redisKey = RedisKeyUtil.getPostScoreKey();
-    BoundSetOperations operations=redisTemplate.boundSetOps(redisKey);
-
-    if (operations.size()==0) {
-        logger.info("[任务取消]，没有需要刷新的帖子!");
-        return;
-    }
-
-    logger.info("[任务开始]，正在刷新帖子的分数："+operations.size());
-    while (operations.size() > 0) {
-        this.refresh((Integer)operations.pop());
-    }
-
-    logger.info("[任务结束]，帖子分数刷新完毕!");
-}
-```
-
-刷新时要同时刷新数据库和ES中的帖子信息。
-
-```java
-private void refresh(int postId){
-    DiscussPost post = discussPostService.findDiscussPostById(postId);
-    if (post==null) {
-        logger.error("该帖子不存在：id="+postId);
-        return;
-    }
-    
-    /*具体的的分数计算*/
+改完以后，联调入口会比较清晰：
 
-    //更新帖子的分数
-    discussPostService.updateScore(postId,score);
+- 论坛主站：`http://localhost:8080/community`
+- 商城网关：`http://localhost:19000`
+- 前端开发页：`http://localhost:5173`
 
-    //同步es中的数据
-    post.setScore(score);
-    elasticsearchService.saveDiscussPost(post);
-}
-```
-
-
-
-## 显示帖子详情
-
-包含：帖子的内容，帖子的回帖，回帖的回复，回复的回复，帖子的回帖数量，帖子的点赞功能，帖子的点赞数量，回帖的回复数量
+## 关键配置位置
 
-```java
-@RequestMapping(path = "/detail/{disPostId}",method = RequestMethod.GET)
-```
+### 论坛主站配置
 
-从数据库的discuss_post中读到该帖子，然后，设置评论的分页信息，从数据库中的comment中读取limit条评论和每条评论对应的所有回复（entity=1,表示是评论；entity=2,表示是回复），再从Redis中读取它们点赞数量和登录用户的点赞状态，还要读取评论的回复数量、回复的作者及回复目标封装在一起返回给前端
+- `community-post-service/src/main/resources/application.properties`
 
-```java
-commentVoList
-··commentVo
-....comment				//评论
-....user				//评论作者
-....likeCount			//评论的点赞数量
-....likeStatus			//评论的点赞状态
-....replyCount			//评论的回复数量
-....replyVoList
-......replyVo
-........reply			//回复
-........user			//回复的作者
-........target			//回复的目标（User）
-........likeCount		//回复的点赞数量
-........likeStatus		//回复的点赞状态
-```
+重点包括：
 
+- 主站端口和上下文路径
+- `study` 数据库
+- Redis
+- Kafka
+- Elasticsearch
+- Quartz
+- LLM 内容审核配置
+- 七牛云
+- wkhtmltoimage
 
+### 论坛用户服务配置
 
-## 添加评论或回复
+- `community-user-service/src/main/resources/application.yml`
 
-```java
-@RequestMapping(path = "/add/{discussPostId}",method = RequestMethod.POST)
-```
+重点包括：
 
-封装comment插入到数据库中，然后封装event，判断是评论还是回复，是评论的话从discuss_post中查询target，是回复的话从comment查询target,然后把target的id添加到event中，通过kafka让系统异步给目标发送系统消息(后面细讲系统怎么发送)，同时还要修改ES中的帖子的回帖数量。最后重定向到帖子详情页面。
+- `study` 数据库
+- Redis
+- Nacos
+- 邮件服务
+- `community.path.domain`
 
+### 商城认证配置
 
+- `auth-service/src/main/resources/application.yml`
 
-## 显示系统消息列表
+重点包括：
 
-```java
-@RequestMapping(path = "/notice/list",method = RequestMethod.GET)
-```
+- `ecommerce_auth` 数据库
+- JWT Secret
+- 论坛用户服务地址 `community.user-service.base-url`
 
-查询数据库中的评论类通知、点赞类通知和关注类通知，根据message表中的conversation_id区分是评论类通知(comment)、还是点赞类通知(like)、还是关注类通知(follow)和用户之间的私信（{userId}_{userId}））,分别封装成messageVo，返回给前端.
+### 商城网关配置
 
-```java
-messageVo
-..message			//消息
-..user				//用户
-..entityType		//实体类型
-..entityId			//实体id
-..postId			//帖子的id
-..count				//消息总数量
-..unreadCount		//未读的数量
-```
+- `gateway-service/src/main/resources/application.yml`
 
+重点包括：
 
+- 网关端口
+- 各服务路由
+- JWT 校验
+- Redis 限流
+- 熔断配置
 
-## 显示系统消息详情
+## 建议的本地联调顺序
 
-```java
-@RequestMapping(path = "/notice/detail/{topic}",method = RequestMethod.GET)
-```
+如果你想尽量少踩坑，我建议按下面这个顺序来：
 
-设置分页信息，分页查询登录用户收到的系统发送的topic标题的消息，将消息和实体类等信息封装在一起发送给前端页面。
+1. 先把 MySQL、Redis、Kafka、Nacos、RabbitMQ 起好
+2. 单独跑通 `community-user-service`
+3. 跑通论坛主站 `community-post-service`
+4. 确认前端 `frontend` 能访问论坛接口
+5. 跑通 `auth-service`
+6. 再逐步补齐 `inventory-service`、`product-service`、`order-service`、`cart-service`、`support-service`
+7. 最后处理商城网关端口，把论坛和商城同时挂起来
 
-```java
-noticeVoList
-..noticeVo
-....notice			//通知
-....user			//用户
-....entityType		//实体类类型
-....entityId		//实体类id
-....postId			//帖子id
-....fromUser		//通知作者
-```
+这个顺序的好处是，用户系统这条主线最先打通，后面其它业务服务即使还没全部准备好，也不会把问题搅成一团。
 
-最后要把读过的消息设为已读。
+## 当前已知问题和部署边界
 
+这部分不写漂亮话，直接说现状。
 
+### 1. 根仓库已经聚合，但还不适合宣称“完全统一构建”
 
-## 显示私信消息列表
+论坛侧和商城侧的 Spring Boot / Java 版本还不一致。论坛侧以 Boot 2.7 为主，商城侧以 Boot 3.3 为主。它们现在已经在一个仓库中，但并不代表已经完成统一父 POM、统一插件链和统一部署脚本治理。
 
-```java
-@RequestMapping(path = "/letter/list",method = RequestMethod.GET)
-```
+### 2. 论坛库初始化脚本缺失
 
-获取当前登录用户，设置分页信息，分页查询消息列表，封装成conversations,传给前端页面
+商城侧多数表可以靠 JPA 自动更新，论坛侧不行。部署论坛前你需要自己准备 `study` 库表结构。
 
-```java
-conversations
-..map
-....conversation		//最新的一条消息
-....letterCount			//消息数量
-....unreadCount			//未读消息的数量
-....target				//目标用户
-```
+### 3. 论坛网关模块还只是骨架
 
-查询未读私信和未读系统消息的总数量，传给前端页面
+`community-gateway` 目前只有基础工程结构，没有像商城网关那样完整的路由配置，所以论坛当前真正的访问入口还是 `community-post-service`。
 
+### 4. 配置中存在硬编码敏感信息
 
+这点本地没问题，但不适合直接进生产，更不适合继续公开扩散。
 
-## 显示私信详情
+### 5. 论坛和商城还没有统一成一个总网关入口
 
-```java
-@RequestMapping(path = "/letter/detail/{conversationId}",method = RequestMethod.GET)
-```
+现在论坛和商城分别有自己的访问方式。论坛偏传统站点入口，商城偏 API 网关入口。真正做成一个统一门户，还需要继续做路由与前端整合。
 
-设置分页信息，根据conversationId分页查询私信信息，封装成letter返回给前端页面
+## 适合拿这个项目做什么
 
-```java
-letters
-..map
-....letter			//消息
-....fromUser		//消息的发送者
-target				//消息的目标
-```
+这个仓库挺适合以下几类场景：
 
-改变已读的消息为已读
+- 课程设计、毕业设计、实训项目
+- 微服务拆分和服务协同演示
+- 社区 + 商城融合方向的原型验证
+- 用户系统整合、登录体系打通的练手项目
+- 内容社区引流到交易闭环的业务探索
 
+如果只是想找一个“开箱即用、一次启动、零配置”的项目，这个仓库现在还不是那个状态。但如果你想找一个真实地处在整合过程中的项目，并继续往工程化、统一网关、统一部署和统一前端推进，它反而很有改造价值。
 
+## 后续建议
 
-## 发送私信
+如果继续往下做，我最建议优先补这几件事：
 
-```java
-@RequestMapping(path = "/letter/send",method = RequestMethod.POST)
-@ResponseBody
-```
+1. 统一论坛和商城的端口规划，先解决 `8080` 冲突。
+2. 整理论坛 `study` 库的初始化 SQL。
+3. 把敏感配置迁移到环境变量或私有配置文件。
+4. 统一根级构建链路，减少混合版本带来的维护成本。
+5. 把论坛入口和商城入口收敛到一个统一网关或统一前端里。
 
-通过目标用户的username获取target用户，拼接conversation_id，把数据封装成message，把message插入到数据库中。
-
-
-
-## 点赞
-
-```java
-@RequestMapping(path = "/like",method = RequestMethod.POST)
-@ResponseBody
-```
-
-将给帖子点了赞的用户id的集合，用户的总点赞量存入redis中
-
-点赞：用户给帖子点赞和用户的总点赞量增加应该同进同退
-
-取消点赞：用户给帖子取消点赞和用户的总点赞量减少也应该同进同退
-
-所以我们要使用事务
-
-```java
-redisTemplate.execute(new SessionCallback() {
-    @Override
-    public Object execute(RedisOperations operations) throws DataAccessException {
-        //谁给帖子点了赞的集合key
-        String entityLikeKey = RedisKeyUtil.getEntityLikeKey(entityType, id);
-        //用户的总点赞量的key
-        String userLikeKey = RedisKeyUtil.getUserLikeKey(targetUserId);
-        //判断用户是否点赞
-        Boolean isMember = redisTemplate.opsForSet().isMember(entityLikeKey, userId);
-        //开启事务
-        operations.multi();
-        if (isMember) {//已有点赞，就取消点赞
-            redisTemplate.opsForSet().remove(entityLikeKey, userId);
-            redisTemplate.opsForValue().decrement(userLikeKey);
-        } else {//没有点赞，点赞成功
-            redisTemplate.opsForSet().add(entityLikeKey, userId);
-            redisTemplate.opsForValue().increment(userLikeKey);
-        }
-        return operations.exec();
-    }
-});
-```
-
-
-
-## 个人主页展示
-
-```java
-@RequestMapping(path = "/profile/{userId}",method = RequestMethod.GET)
-```
-
-通过userId查询用户，从redis中查询用户获得的点赞数量、用户关注的实体数量、关注用户的实体数量和用户是否关注该用户，传给前端页面。在前端页面中，要对关注按钮进行处理。
-
-```html
-<button type="button" 
-	th:class="|btn ${hasFollowed?'btn-secondary':'btn-info'} btn-sm float-right mr-5 follow-btn|" 
-	th:text="${hasFollowed?'已关注':'关注TA'}" 
-	th:if="${loginUser!=null&&loginUser.id!=user.id}">
-	 	关注TA
-</button>
-```
-
-
-
-## 关注的用户列表
-
-```java
-@RequestMapping(path = "/followees/{userId}",method = RequestMethod.GET)
-```
-
-根据userId查询出用户，将用户传到前端页面。设置分页信息，分页查询该用户关注的用户，查询登录用户是否关注该用户关注的用户，把数据传到前端页面。关注按钮处理同个人主页展示一样。
-
-
-
-## 粉丝列表
-
-```
-@RequestMapping(path = "/followers/{entityId}",method = RequestMethod.GET)
-```
-
-根据userId查询出用户，将用户传到前端页面。设置分页信息，分页查询该用户的粉丝，查询登录用户是否关注该用户的粉丝，把数据传到前端页面。关注按钮处理同个人主页展示一样。
-
-
-
-## 统一处理异常
-
-```java
-@ControllerAdvice(annotations = Controller.class)
-public class ExceptionAdvice {
-    private static Logger logger= LoggerFactory.getLogger(ExceptionAdvice.class);
-
-    @ExceptionHandler({Exception.class})
-    public void handleException(Exception e, HttpServletRequest request, HttpServletResponse response) throws IOException {
-        logger.error("服务器发生异常："+e.getMessage());
-        for (StackTraceElement element : e.getStackTrace()) {
-            logger.error(element.toString());
-        }
-
-        //用于判断请求是否为异步请求
-        String xRequestedWith = request.getHeader("x-requested-with");
-        if ("XMLHttpRequest".equals(xRequestedWith)) {
-            response.setContentType("application/plain;charset=utf-8");
-            PrintWriter writer = response.getWriter();
-            writer.write(CommunityUtil.getJSONString(1,"服务器异常！"));
-        }else{
-            response.sendRedirect(request.getContextPath()+"/error");
-        }
-    }
-}
-```
-
-
-
-## 通过AOP思想实现统一打印日志
-
-```java
-@Component
-@Aspect
-public class ServiceLogAspect {
-
-    private static Logger logger= LoggerFactory.getLogger(ServiceLogAspect.class);
-
-    @Pointcut("execution(* com.nowcoder.community.service.*.*(..))")
-    public void pointcut(){
-
-    }
-
-    @Before("pointcut()")
-    public void before(JoinPoint joinPoint){
-        //用户[1.2.3.4]，在[XXX(时间)],访问了[com.nowcoder.community.service.xxx()].
-        //获取用户ip
-        ServletRequestAttributes attributes=(ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes==null){//常规调用，不是前端调用
-            return;
-        }
-        HttpServletRequest request = attributes.getRequest();
-        String ip = request.getRemoteHost();
-        //获取时间
-        String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-        //获取访问的方法名
-        String target=joinPoint.getSignature().getDeclaringTypeName()+"."+joinPoint.getSignature().getName();
-        logger.info(String.format("用户[%s]，在[%s],访问了[%s].",ip,now,target));
-    }
-}
-```
-
-
-
-## 展示后台UV和DAU
-
-通过DataInterceptor拦截器记录UV和DAU
-
-```java
-@RequestMapping(path = "/data",method = {RequestMethod.GET,RequestMethod.POST})
-```
-
-返回统计页面
-
-
-
-```java
-//统计网站UV
-@RequestMapping(path = "/data/uv",method = RequestMethod.POST)
-```
-
-使用redis中的HyperLogLog数据类型保存UV，整理指定日期范围内的key，整合这些key的数据，返回统计结果
-
-```java
-redisTemplate.opsForHyperLogLog().size(redisKey);
-```
-
-
-
-```java
-//统计网站DAU
-@RequestMapping(path = "/data/dau",method = RequestMethod.POST)
-```
-
-在redis中保存DAU，整理指定日期范围内的key，整合这些key的数据，返回统计结果
-
-**问题：前端页面使用的是form，两个form不能同时显示数据，可以改为异步提交**
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+做到这一步，这个项目就会从“整合中的仓库”变成“可以稳定交付和演示的平台”。
