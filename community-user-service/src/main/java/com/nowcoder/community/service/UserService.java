@@ -2,6 +2,7 @@ package com.nowcoder.community.service;
 
 import com.nowcoder.community.dao.LoginTicketMapper;
 import com.nowcoder.community.dao.UserMapper;
+import com.nowcoder.community.dto.AuthRegisterRequest;
 import com.nowcoder.community.entity.LoginTicket;
 import com.nowcoder.community.entity.User;
 import com.nowcoder.community.util.CommunityConstant;
@@ -46,6 +47,8 @@ public class UserService implements CommunityConstant {
     private RedisTemplate redisTemplate;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    private static final String EXTERNAL_EMAIL_DOMAIN = "ecommerce.local";
 
     //修改密码
     public int updatePassword(int id,String password){
@@ -118,7 +121,7 @@ public class UserService implements CommunityConstant {
         //
         //        String content = templateEngine.process("/mail/activation.html", context);
         //
-        //        mailClient.sendMail(user.getEmail(),"激活账号",content);
+        //        mailClient.sendMail(user.getEmail(),"Activate account",content);
         //
         //        return map;
 //            }
@@ -149,10 +152,49 @@ public class UserService implements CommunityConstant {
         context.setVariable("url",url);
 
         String content = templateEngine.process("/mail/activation.html", context);
-
-        mailClient.sendMail(user.getEmail(),"激活账号",content);
+        mailClient.sendMail(user.getEmail(),"Activate account",content);
 
         return map;
+    }
+
+    public User registerExternal(AuthRegisterRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("invalid_request");
+        }
+        String username = StringUtils.trimToNull(request.getUsername());
+        String password = StringUtils.trimToNull(request.getPassword());
+        if (username == null || password == null) {
+            throw new IllegalArgumentException("invalid_request");
+        }
+        User existing = userMapper.selectByName(username);
+        if (existing != null) {
+            throw new IllegalArgumentException("username_exists");
+        }
+        String email = StringUtils.trimToNull(request.getEmail());
+        if (email == null) {
+            email = username + "@" + EXTERNAL_EMAIL_DOMAIN;
+        }
+        User emailOwner = userMapper.selectByEmail(email);
+        if (emailOwner != null) {
+            email = username + "+" + CommunityUtil.generateUUID().substring(0, 6) + "@" + EXTERNAL_EMAIL_DOMAIN;
+        }
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(encodePassword(password));
+        user.setSalt("");
+        user.setEmail(email);
+        user.setType(0);
+        if (request.isAutoActivate()) {
+            user.setStatus(1);
+            user.setActivationCode("");
+        } else {
+            user.setStatus(0);
+            user.setActivationCode(CommunityUtil.generateUUID().substring(0, 6));
+        }
+        user.setHeaderUrl(String.format("https://images.nowcoder.com/head/%dt.png", new java.util.Random().nextInt(1000)));
+        user.setCreateTime(new java.util.Date());
+        userMapper.insertUser(user);
+        return user;
     }
 
     /*激活*/
@@ -345,11 +387,22 @@ public class UserService implements CommunityConstant {
         return stored!=null && stored.equals(CommunityUtil.md5(rawPassword+salt));
     }
 
+    public void upgradePasswordIfNeeded(User user, String rawPassword) {
+        if (user == null || rawPassword == null) {
+            return;
+        }
+        if (!isBcryptHash(user.getPassword())) {
+            String encoded = encodePassword(rawPassword);
+            updatePassword(user.getId(), encoded);
+            user.setPassword(encoded);
+        }
+    }
+
     private boolean isBcryptHash(String hash){
         if(hash==null){
             return false;
         }
-        return hash.startsWith(\"$2a$\") || hash.startsWith(\"$2b$\") || hash.startsWith(\"$2y$\");
+        return hash.startsWith("$2a$") || hash.startsWith("$2b$") || hash.startsWith("$2y$");
     }
 
     // 在认证过程中提供用户的权限信息，以便Spring Security可以根据用户的权限决定哪些资源和操作是允许的

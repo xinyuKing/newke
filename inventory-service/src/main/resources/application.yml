@@ -1,0 +1,63 @@
+server:
+  port: 18083
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/ecommerce_inventory?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:30}
+      minimum-idle: ${DB_POOL_MIN:10}
+      connection-timeout: ${DB_CONN_TIMEOUT_MS:2000}
+      idle-timeout: ${DB_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: ${REDIS_TIMEOUT_MS:1000}ms
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX:32}
+          max-idle: ${REDIS_POOL_MAX_IDLE:16}
+          min-idle: ${REDIS_POOL_MIN_IDLE:4}
+          max-wait: ${REDIS_POOL_MAX_WAIT_MS:2000}ms
+
+security:
+  jwt:
+    secret: "change-this-secret-key-32-bytes-min"
+    expire-minutes: 120
+
+logging:
+  level:
+    root: INFO
+
+inventory:
+  stock:
+    lock-ttl: ${INVENTORY_STOCK_LOCK_TTL:5s}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

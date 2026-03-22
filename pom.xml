@@ -49,5 +49,13 @@
     <module>community-message-service</module>
     <module>community-media-service</module>
     <module>community-data-service</module>
+    <module>common</module>
+    <module>auth-service</module>
+    <module>product-service</module>
+    <module>inventory-service</module>
+    <module>order-service</module>
+    <module>cart-service</module>
+    <module>support-service</module>
+    <module>gateway-service</module>
   </modules>
 </project>
