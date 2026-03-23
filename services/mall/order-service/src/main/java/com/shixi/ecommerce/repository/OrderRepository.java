@@ -16,6 +16,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByOrderNoAndUserId(String orderNo, Long userId);
 
+    Optional<Order> findByOrderNoAndMerchantId(String orderNo, Long merchantId);
+
     @Modifying(clearAutomatically = true)
     @Query("update Order o set o.status = :to, o.updatedAt = CURRENT_TIMESTAMP "
             + "where o.orderNo = :orderNo and o.status = :from")
@@ -37,6 +39,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             + "where o.orderNo = :orderNo and o.status = :from")
     int updateShipInfo(
             @Param("orderNo") String orderNo,
+            @Param("from") OrderStatus from,
+            @Param("to") OrderStatus to,
+            @Param("carrierCode") String carrierCode,
+            @Param("trackingNo") String trackingNo);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update Order o set o.status = :to, o.carrierCode = :carrierCode, o.trackingNo = :trackingNo, "
+            + "o.shippedAt = CURRENT_TIMESTAMP, o.updatedAt = CURRENT_TIMESTAMP "
+            + "where o.orderNo = :orderNo and o.merchantId = :merchantId and o.status = :from")
+    int updateShipInfoByMerchant(
+            @Param("orderNo") String orderNo,
+            @Param("merchantId") Long merchantId,
             @Param("from") OrderStatus from,
             @Param("to") OrderStatus to,
             @Param("carrierCode") String carrierCode,

@@ -152,8 +152,14 @@ const checkout = async () => {
   const { data } = await mallApi.post("/user/cart/checkout", {
     idempotencyKey: createIdempotencyKey("cart")
   });
-  if (data?.success && data.data?.orderNo) {
-    router.push(`/mall/orders/${data.data.orderNo}`);
+  const orderNos = data?.data?.orderNos || [];
+  const primaryOrderNo = data?.data?.orderNo || orderNos[0];
+  if (data?.success && orderNos.length > 1) {
+    router.push({ path: "/mall/orders", query: { created: orderNos.join(",") } });
+    return;
+  }
+  if (data?.success && primaryOrderNo) {
+    router.push(`/mall/orders/${primaryOrderNo}`);
     return;
   }
   message.value = data?.message || "Checkout failed.";

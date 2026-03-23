@@ -26,9 +26,11 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
@@ -121,6 +123,9 @@ public class OrderService {
         if (items == null || items.isEmpty()) {
             throw new BusinessException("Empty order items");
         }
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new BusinessException("Idempotency key required");
+        }
         String bizKey = bizPrefix + ":" + userId + ":" + idempotencyKey;
         boolean locked = idempotencyService.acquire(bizKey, Duration.ofMinutes(10));
         if (!locked) {
@@ -135,30 +140,41 @@ public class OrderService {
                 throw new BusinessException("Insufficient stock");
             }
             deducted = true;
-            String orderNo = OrderNoGenerator.nextOrderNo();
-            Order order = new Order();
-            order.setOrderNo(orderNo);
-            order.setUserId(userId);
-            order.setStatus(OrderStatus.CREATED);
+            Map<Long, List<OrderLineItem>> merchantGroups = groupItemsByMerchant(pricedItems);
+            List<Order> orders = new ArrayList<>(merchantGroups.size());
             List<OrderItem> orderItems = new ArrayList<>(pricedItems.size());
-            BigDecimal total = BigDecimal.ZERO;
-            for (OrderLineItem line : pricedItems) {
-                OrderItem orderItem = new OrderItem();
-                orderItem.setOrderNo(orderNo);
-                orderItem.setSkuId(line.getSkuId());
-                orderItem.setQuantity(line.getQuantity());
-                orderItem.setPrice(line.getPrice());
-                orderItems.add(orderItem);
-                total = total.add(line.getPrice().multiply(BigDecimal.valueOf(line.getQuantity())));
-            }
-            order.setTotalAmount(total);
-            orderRepository.save(order);
-            saveOrderItems(orderItems);
-            bumpOrderVersion(orderNo);
-            bumpOrderListVersion(userId);
+            List<String> orderNos = new ArrayList<>(merchantGroups.size());
+            for (Map.Entry<Long, List<OrderLineItem>> entry : merchantGroups.entrySet()) {
+                Long merchantId = entry.getKey();
+                String orderNo = OrderNoGenerator.nextOrderNo();
+                Order order = new Order();
+                order.setOrderNo(orderNo);
+                order.setUserId(userId);
+                order.setMerchantId(merchantId);
+                order.setStatus(OrderStatus.CREATED);
+                order.setTotalAmount(calculateTotal(entry.getValue()));
+                orders.add(order);
+                orderNos.add(orderNo);
 
-            eventPublisher.publishOrderCreated(orderNo);
-            return new CreateOrderResponse(orderNo, order.getStatus());
+                for (OrderLineItem line : entry.getValue()) {
+                    OrderItem orderItem = new OrderItem();
+                    orderItem.setOrderNo(orderNo);
+                    orderItem.setMerchantId(merchantId);
+                    orderItem.setSkuId(line.getSkuId());
+                    orderItem.setQuantity(line.getQuantity());
+                    orderItem.setPrice(line.getPrice());
+                    orderItems.add(orderItem);
+                }
+            }
+            orderRepository.saveAll(orders);
+            saveOrderItems(orderItems);
+            bumpOrderListVersion(userId);
+            for (String orderNo : orderNos) {
+                bumpOrderVersion(orderNo);
+                eventPublisher.publishOrderCreated(orderNo);
+            }
+            String primaryOrderNo = orderNos.get(0);
+            return new CreateOrderResponse(primaryOrderNo, OrderStatus.CREATED, orderNos, orderNos.size() > 1);
         } catch (RuntimeException ex) {
             if (deducted) {
                 inventoryClient.releaseBatch(pricedItems);
@@ -196,7 +212,7 @@ public class OrderService {
      * @param role        操作角色
      */
     @Transactional
-    public void shipOrder(String orderNo, String carrierCode, String trackingNo, String role) {
+    public void shipOrder(Long operatorUserId, String orderNo, String carrierCode, String trackingNo, String role) {
         if (carrierCode == null || carrierCode.isBlank()) {
             throw new BusinessException("Carrier code required");
         }
@@ -204,8 +220,31 @@ public class OrderService {
             throw new BusinessException("Tracking number required");
         }
         orderStateMachine.assertTransition(OrderStatus.PAID, OrderStatus.SHIPPED, role);
-        int updated = orderRepository.updateShipInfo(
-                orderNo, OrderStatus.PAID, OrderStatus.SHIPPED, carrierCode.trim(), trackingNo.trim());
+        int updated;
+        if ("MERCHANT".equals(role)) {
+            if (operatorUserId == null) {
+                throw new BusinessException("Merchant identity required");
+            }
+            updated = orderRepository.updateShipInfoByMerchant(
+                    orderNo,
+                    operatorUserId,
+                    OrderStatus.PAID,
+                    OrderStatus.SHIPPED,
+                    carrierCode.trim(),
+                    trackingNo.trim());
+            if (updated == 0) {
+                Order order = orderRepository
+                        .findByOrderNo(orderNo)
+                        .orElseThrow(() -> new BusinessException("Order not found"));
+                if (!Objects.equals(order.getMerchantId(), operatorUserId)) {
+                    throw new BusinessException("No permission to ship order: " + orderNo);
+                }
+                throw new BusinessException("Order not shippable or not found: " + orderNo);
+            }
+        } else {
+            updated = orderRepository.updateShipInfo(
+                    orderNo, OrderStatus.PAID, OrderStatus.SHIPPED, carrierCode.trim(), trackingNo.trim());
+        }
         if (updated == 0) {
             throw new BusinessException("Order not shippable or not found: " + orderNo);
         }
@@ -284,6 +323,7 @@ public class OrderService {
                 .collect(Collectors.toList());
         OrderDetailResponse response = new OrderDetailResponse(
                 order.getOrderNo(),
+                order.getMerchantId(),
                 order.getStatus(),
                 order.getTotalAmount(),
                 order.getCarrierCode(),
@@ -308,6 +348,7 @@ public class OrderService {
         return new OrderRefundSnapshotResponse(
                 order.getOrderNo(),
                 order.getUserId(),
+                order.getMerchantId(),
                 order.getStatus(),
                 order.getTotalAmount(),
                 order.getCarrierCode(),
@@ -361,7 +402,11 @@ public class OrderService {
         }
         List<OrderSummaryResponse> items = orders.stream()
                 .map(order -> new OrderSummaryResponse(
-                        order.getOrderNo(), order.getStatus(), order.getTotalAmount(), order.getCreatedAt()))
+                        order.getOrderNo(),
+                        order.getMerchantId(),
+                        order.getStatus(),
+                        order.getTotalAmount(),
+                        order.getCreatedAt()))
                 .collect(Collectors.toList());
         CursorPageResponse<OrderSummaryResponse> response = new CursorPageResponse<>(items, hasNext, nextTime, nextId);
         setCache(cacheKey, response, ORDER_LIST_CACHE_TTL);
@@ -399,6 +444,12 @@ public class OrderService {
     private List<OrderLineItem> priceItems(List<OrderLineItem> items) {
         Set<Long> skuIds = new LinkedHashSet<>();
         for (OrderLineItem item : items) {
+            if (item.getSkuId() == null) {
+                throw new BusinessException("SkuId required");
+            }
+            if (item.getQuantity() == null || item.getQuantity() < 1) {
+                throw new BusinessException("Invalid quantity for sku: " + item.getSkuId());
+            }
             skuIds.add(item.getSkuId());
         }
         List<ProductResponse> products = productClient.getProducts(new ArrayList<>(skuIds));
@@ -418,9 +469,33 @@ public class OrderService {
             if (product.getStatus() != ProductStatus.ACTIVE) {
                 throw new BusinessException("Product inactive: " + item.getSkuId());
             }
-            pricedItems.add(new OrderLineItem(item.getSkuId(), item.getQuantity(), product.getPrice()));
+            if (product.getMerchantId() == null) {
+                throw new BusinessException("Product merchant missing: " + item.getSkuId());
+            }
+            pricedItems.add(new OrderLineItem(
+                    item.getSkuId(), item.getQuantity(), product.getPrice(), product.getMerchantId()));
         }
         return pricedItems;
+    }
+
+    private Map<Long, List<OrderLineItem>> groupItemsByMerchant(List<OrderLineItem> items) {
+        Map<Long, List<OrderLineItem>> groups = new LinkedHashMap<>();
+        for (OrderLineItem item : items) {
+            Long merchantId = item.getMerchantId();
+            if (merchantId == null) {
+                throw new BusinessException("MerchantId required for sku: " + item.getSkuId());
+            }
+            groups.computeIfAbsent(merchantId, ignored -> new ArrayList<>()).add(item);
+        }
+        return groups;
+    }
+
+    private BigDecimal calculateTotal(List<OrderLineItem> items) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (OrderLineItem item : items) {
+            total = total.add(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+        }
+        return total;
     }
 
     private String orderVersionKey(String orderNo) {

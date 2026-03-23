@@ -4,12 +4,13 @@ import com.nowcoder.community.dto.AuthUserResponse;
 import com.nowcoder.community.dto.SessionLoginRequest;
 import com.nowcoder.community.dto.SessionRegisterRequest;
 import com.nowcoder.community.entity.User;
+import com.nowcoder.community.security.ForumCookieService;
 import com.nowcoder.community.service.UserService;
 import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
 import com.nowcoder.community.util.RedisKeyUtil;
-import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,10 +24,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 面向前后端分离场景的论坛会话接口。
+ * 闈㈠悜鍓嶅悗绔垎绂诲満鏅殑璁哄潧浼氳瘽鎺ュ彛銆?
  *
- * <p>该控制器把论坛原有的登录、注册、当前用户查询、注销能力封装为 JSON API，
- * 供整合后的统一前端直接调用。</p>
+ * <p>璇ユ帶鍒跺櫒鎶婅鍧涘師鏈夌殑鐧诲綍銆佹敞鍐屻€佸綋鍓嶇敤鎴锋煡璇€佹敞閿€鑳藉姏灏佽涓?JSON API锛?
+ * 渚涙暣鍚堝悗鐨勭粺涓€鍓嶇鐩存帴璋冪敤銆?/p>
  */
 @RestController
 public class SessionApiController implements CommunityConstant {
@@ -34,25 +35,32 @@ public class SessionApiController implements CommunityConstant {
     private final UserService userService;
     private final RedisTemplate<String, Object> redisTemplate;
     private final HostHolder hostHolder;
+    private final ForumCookieService forumCookieService;
 
     public SessionApiController(
-            UserService userService, RedisTemplate<String, Object> redisTemplate, HostHolder hostHolder) {
+            UserService userService,
+            RedisTemplate<String, Object> redisTemplate,
+            HostHolder hostHolder,
+            ForumCookieService forumCookieService) {
         this.userService = userService;
         this.redisTemplate = redisTemplate;
         this.hostHolder = hostHolder;
+        this.forumCookieService = forumCookieService;
     }
 
     /**
-     * 处理 SPA 登录。
+     * 澶勭悊 SPA 鐧诲綍銆?
      *
-     * @param request 登录参数
-     * @param response HTTP 响应，用于回写 ticket Cookie
-     * @param kaptchaOwner 验证码归属 Cookie
-     * @return 登录结果
+     * @param request 鐧诲綍鍙傛暟
+     * @param httpRequest HTTP 璇锋眰锛岀敤浜庡洖鍐?CSRF Cookie
+     * @param response HTTP 鍝嶅簲锛岀敤浜庡洖鍐?ticket Cookie
+     * @param kaptchaOwner 楠岃瘉鐮佸綊灞?Cookie
+     * @return 鐧诲綍缁撴灉
      */
     @PostMapping("/api/session/login")
     public ApiResponse<Object> login(
             @RequestBody SessionLoginRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response,
             @CookieValue(value = "kaptchaOwner", required = false) String kaptchaOwner) {
         if (request == null) {
@@ -70,7 +78,7 @@ public class SessionApiController implements CommunityConstant {
         if (StringUtils.isBlank(kaptcha)
                 || StringUtils.isBlank(request.getCode())
                 || !StringUtils.equalsIgnoreCase(kaptcha, request.getCode())) {
-            errorData.put("codeMsg", "验证码错误！");
+            errorData.put("codeMsg", "楠岃瘉鐮侀敊璇紒");
             return ApiResponse.error(1, "login_failed", errorData);
         }
 
@@ -81,20 +89,18 @@ public class SessionApiController implements CommunityConstant {
             return ApiResponse.error(1, "login_failed", loginResult);
         }
 
-        Cookie cookie = new Cookie("ticket", String.valueOf(loginResult.get("ticket")));
-        cookie.setPath("/");
-        cookie.setMaxAge(expiredSeconds);
-        response.addCookie(cookie);
+        forumCookieService.writeTicketCookie(response, String.valueOf(loginResult.get("ticket")), expiredSeconds);
+        forumCookieService.ensureCsrfCookie(httpRequest, response);
 
         User user = userService.findUserByName(request.getUsername());
         return ApiResponse.success(toAuthUser(user));
     }
 
     /**
-     * 处理 SPA 注册。
+     * 澶勭悊 SPA 娉ㄥ唽銆?
      *
-     * @param request 注册参数
-     * @return 注册结果
+     * @param request 娉ㄥ唽鍙傛暟
+     * @return 娉ㄥ唽缁撴灉
      */
     @PostMapping("/api/session/register")
     public ApiResponse<Object> register(@RequestBody SessionRegisterRequest request) {
@@ -115,9 +121,9 @@ public class SessionApiController implements CommunityConstant {
     }
 
     /**
-     * 查询当前论坛会话用户。
+     * 鏌ヨ褰撳墠璁哄潧浼氳瘽鐢ㄦ埛銆?
      *
-     * @return 当前登录用户脱敏信息
+     * @return 褰撳墠鐧诲綍鐢ㄦ埛鑴辨晱淇℃伅
      */
     @GetMapping("/api/session/me")
     public ApiResponse<AuthUserResponse> me() {
@@ -129,11 +135,11 @@ public class SessionApiController implements CommunityConstant {
     }
 
     /**
-     * 注销当前论坛会话。
+     * 娉ㄩ攢褰撳墠璁哄潧浼氳瘽銆?
      *
-     * @param ticket 登录凭证 Cookie
-     * @param response HTTP 响应，用于清理浏览器 Cookie
-     * @return 注销结果
+     * @param ticket 鐧诲綍鍑瘉 Cookie
+     * @param response HTTP 鍝嶅簲锛岀敤浜庢竻鐞嗘祻瑙堝櫒 Cookie
+     * @return 娉ㄩ攢缁撴灉
      */
     @PostMapping("/api/session/logout")
     public ApiResponse<Void> logout(
@@ -142,19 +148,17 @@ public class SessionApiController implements CommunityConstant {
             userService.logout(ticket);
         }
         SecurityContextHolder.clearContext();
-
-        Cookie cookie = new Cookie("ticket", "");
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        forumCookieService.clearTicketCookie(response);
+        forumCookieService.clearCsrfCookie(response);
+        forumCookieService.clearCaptchaCookie(response);
         return ApiResponse.success(null);
     }
 
     /**
-     * 把论坛用户实体转换为前端友好的脱敏结果。
+     * 鎶婅鍧涚敤鎴峰疄浣撹浆鎹负鍓嶇鍙嬪ソ鐨勮劚鏁忕粨鏋溿€?
      *
-     * @param user 论坛用户实体
-     * @return 统一用户响应
+     * @param user 璁哄潧鐢ㄦ埛瀹炰綋
+     * @return 缁熶竴鐢ㄦ埛鍝嶅簲
      */
     private AuthUserResponse toAuthUser(User user) {
         if (user == null) {

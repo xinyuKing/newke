@@ -1,5 +1,6 @@
 package com.shixi.ecommerce.internal;
 
+import com.shixi.ecommerce.security.SecuritySecretValidator;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
@@ -26,8 +27,9 @@ public class InternalAuthSigner {
     public InternalAuthSigner(InternalAuthProperties properties, String applicationName) {
         this.properties = properties;
         this.localServiceId = resolveLocalServiceId(properties, applicationName);
+        validateConfiguration();
         SecretKeySpec secretKey =
-                new SecretKeySpec(properties.getSecret().getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);
+                new SecretKeySpec(resolveSecret(properties).getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);
         this.macHolder = ThreadLocal.withInitial(() -> createMac(secretKey));
     }
 
@@ -42,7 +44,7 @@ public class InternalAuthSigner {
     public boolean isCallerAllowed(String callerServiceId) {
         List<String> allowedCallers = properties.getAllowedCallers();
         if (allowedCallers == null || allowedCallers.isEmpty()) {
-            return true;
+            return false;
         }
         return allowedCallers.stream().anyMatch(callerServiceId::equals);
     }
@@ -118,6 +120,24 @@ public class InternalAuthSigner {
             return applicationName.trim();
         }
         return "unknown-service";
+    }
+
+    private void validateConfiguration() {
+        if (!properties.isEnabled()) {
+            return;
+        }
+        if (!StringUtils.hasText(localServiceId) || "unknown-service".equals(localServiceId)) {
+            throw new IllegalStateException("internal.auth.service-id or spring.application.name must be configured");
+        }
+        SecuritySecretValidator.requireStrongSecret(properties.getSecret(), 32, "internal.auth.secret");
+    }
+
+    private static String resolveSecret(InternalAuthProperties properties) {
+        if (!properties.isEnabled()) {
+            return SecuritySecretValidator.defaultIfBlank(
+                    properties.getSecret(), "internal-auth-disabled-fallback-secret");
+        }
+        return SecuritySecretValidator.requireStrongSecret(properties.getSecret(), 32, "internal.auth.secret");
     }
 
     private static String normalizeMethod(String method) {

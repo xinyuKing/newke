@@ -111,7 +111,7 @@ gateway:
 security:
   jwt:
     # 网关与商城各服务共用同一套 JWT 密钥，部署时务必通过环境变量覆盖。
-    secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
+    secret: ${JWT_SECRET}
     expire-minutes: ${JWT_EXPIRE_MINUTES:120}
 
 logging:

@@ -12,7 +12,10 @@ import java.math.BigDecimal;
 @Entity
 @Table(
         name = "order_item",
-        indexes = {@Index(name = "idx_order_item_order_no", columnList = "orderNo")})
+        indexes = {
+            @Index(name = "idx_order_item_order_no", columnList = "orderNo"),
+            @Index(name = "idx_order_item_merchant_order", columnList = "merchantId,orderNo")
+        })
 public class OrderItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,6 +23,9 @@ public class OrderItem {
 
     @Column(nullable = false, length = 32)
     private String orderNo;
+
+    @Column(nullable = false)
+    private Long merchantId;
 
     @Column(nullable = false)
     private Long skuId;
@@ -40,6 +46,14 @@ public class OrderItem {
 
     public void setOrderNo(String orderNo) {
         this.orderNo = orderNo;
+    }
+
+    public Long getMerchantId() {
+        return merchantId;
+    }
+
+    public void setMerchantId(Long merchantId) {
+        this.merchantId = merchantId;
     }
 
     public Long getSkuId() {

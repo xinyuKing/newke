@@ -32,8 +32,9 @@ public class OrderController {
 
     @PostMapping("/{orderNo}/ship")
     public ApiResponse<String> shipOrder(@PathVariable String orderNo, @Valid @RequestBody ShipOrderRequest request) {
+        Long userId = currentUserService.getCurrentUser().getUserId();
         String role = currentUserService.getCurrentUser().getRole();
-        orderService.shipOrder(orderNo, request.getCarrierCode(), request.getTrackingNo(), role);
+        orderService.shipOrder(userId, orderNo, request.getCarrierCode(), request.getTrackingNo(), role);
         return ApiResponse.ok("SHIPPED");
     }
 }

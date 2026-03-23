@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InternalAuthProperties {
-    private boolean enabled = true;
+    private boolean enabled = false;
     private String serviceId;
-    private String secret = "change-this-internal-api-secret-32-bytes";
+    private String secret;
     private long maxSkewSeconds = 30;
     private List<String> allowedCallers = new ArrayList<>();
 

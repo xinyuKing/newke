@@ -37,12 +37,12 @@ spring:
 security:
   jwt:
     # 认证服务负责签发令牌，网关与其余商城服务必须使用同一密钥进行验签。
-    secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
+    secret: ${JWT_SECRET}
     expire-minutes: ${JWT_EXPIRE_MINUTES:120}
 
 internal:
   auth:
-    secret: ${INTERNAL_API_SECRET:change-this-internal-api-secret-32-bytes}
+    enabled: false
 
 community:
   user-service:

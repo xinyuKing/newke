@@ -5,6 +5,7 @@ import com.shixi.ecommerce.internal.InternalAuthRestTemplateInterceptor;
 import com.shixi.ecommerce.internal.InternalAuthSigner;
 import com.shixi.ecommerce.network.ClientIpProperties;
 import com.shixi.ecommerce.network.ClientIpResolver;
+import com.shixi.ecommerce.security.JwtSecurityProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,12 @@ public class MallCommonInfrastructureConfiguration {
     @ConfigurationProperties(prefix = "internal.auth")
     public InternalAuthProperties internalAuthProperties() {
         return new InternalAuthProperties();
+    }
+
+    @Bean
+    @ConfigurationProperties(prefix = "security.jwt")
+    public JwtSecurityProperties jwtSecurityProperties() {
+        return new JwtSecurityProperties();
     }
 
     @Bean

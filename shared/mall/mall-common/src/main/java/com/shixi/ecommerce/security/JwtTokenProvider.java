@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import javax.crypto.SecretKey;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,15 +16,13 @@ public class JwtTokenProvider {
     private final SecretKey secretKey;
     private final long validityMs;
 
-    public JwtTokenProvider(
-            @Value("${security.jwt.secret}") String secret,
-            @Value("${security.jwt.expire-minutes}") long expireMinutes) {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, keyBytes.length);
-            keyBytes = padded;
+    public JwtTokenProvider(JwtSecurityProperties properties) {
+        String secret = SecuritySecretValidator.requireStrongSecret(properties.getSecret(), 32, "security.jwt.secret");
+        long expireMinutes = properties.getExpireMinutes();
+        if (expireMinutes < 1) {
+            throw new IllegalStateException("security.jwt.expire-minutes must be greater than 0");
         }
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.validityMs = expireMinutes * 60 * 1000;
     }

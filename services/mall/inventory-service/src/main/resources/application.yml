@@ -40,12 +40,13 @@ spring:
 
 security:
   jwt:
-    secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
+    secret: ${JWT_SECRET}
     expire-minutes: ${JWT_EXPIRE_MINUTES:120}
 
 internal:
   auth:
-    secret: ${INTERNAL_API_SECRET:change-this-internal-api-secret-32-bytes}
+    enabled: true
+    secret: ${INTERNAL_API_SECRET}
     allowed-callers:
       - order-service
       - product-service

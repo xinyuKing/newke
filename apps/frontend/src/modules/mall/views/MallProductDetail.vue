@@ -178,8 +178,10 @@ const buyNow = async () => {
     quantity: Math.max(1, Number(quantity.value) || 1),
     idempotencyKey: createIdempotencyKey("buy")
   });
-  if (data?.success && data.data?.orderNo) {
-    router.push(`/mall/orders/${data.data.orderNo}`);
+  const orderNos = data?.data?.orderNos || [];
+  const primaryOrderNo = data?.data?.orderNo || orderNos[0];
+  if (data?.success && primaryOrderNo) {
+    router.push(`/mall/orders/${primaryOrderNo}`);
     return;
   }
   message.value = data?.message || "Create order failed.";

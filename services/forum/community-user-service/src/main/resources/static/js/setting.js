@@ -21,7 +21,7 @@ function updatePassword() {
             data = $.parseJSON(data);
             if (data.code == 0) {
                 showAlert("密码修改成功，请重新登录");
-                location.href = CONTEXT_PATH + "/logout";
+                communityLogout({ redirect: CONTEXT_PATH + "/login" });
             } else {
                 showAlert(data.msg);
             }

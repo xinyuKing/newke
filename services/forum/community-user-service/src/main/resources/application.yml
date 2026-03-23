@@ -49,6 +49,16 @@ community:
   path:
     domain: ${COMMUNITY_PUBLIC_DOMAIN:http://localhost:8080}
     upload: ${FORUM_UPLOAD_PATH:./runtime/community/upload}
+  security:
+    csrf-enabled: true
+    secure: ${FORUM_COOKIE_SECURE:false}
+    same-site: ${FORUM_COOKIE_SAME_SITE:Lax}
+    cookie-path: /
+    ticket-cookie-name: ticket
+    captcha-cookie-name: kaptchaOwner
+    csrf-cookie-name: forum_csrf
+    csrf-header-name: X-CSRF-Token
+    csrf-max-age-seconds: ${FORUM_CSRF_MAX_AGE_SECONDS:604800}
 
 qiniu:
   key:

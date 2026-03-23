@@ -1,8 +1,13 @@
 package com.shixi.ecommerce.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,6 +16,10 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.shixi.ecommerce.domain.Order;
 import com.shixi.ecommerce.domain.OrderItem;
 import com.shixi.ecommerce.domain.OrderStatus;
+import com.shixi.ecommerce.domain.ProductStatus;
+import com.shixi.ecommerce.dto.CreateOrderResponse;
+import com.shixi.ecommerce.dto.OrderLineItem;
+import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.OrderItemRepository;
 import com.shixi.ecommerce.repository.OrderRepository;
 import java.math.BigDecimal;
@@ -21,6 +30,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -74,6 +84,54 @@ class OrderServiceTest {
     }
 
     @Test
+    void createOrderByItemsSplitsOrdersByMerchant() {
+        when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
+                .thenReturn(true);
+        when(productClient.getProducts(List.of(1001L, 1002L)))
+                .thenReturn(List.of(
+                        new ProductResponse(
+                                1001L,
+                                7L,
+                                "Keyboard",
+                                "Low latency keyboard",
+                                null,
+                                new BigDecimal("99.00"),
+                                ProductStatus.ACTIVE),
+                        new ProductResponse(
+                                1002L,
+                                8L,
+                                "Mouse",
+                                "Lightweight mouse",
+                                null,
+                                new BigDecimal("59.50"),
+                                ProductStatus.ACTIVE)));
+        when(inventoryClient.deductBatch(any())).thenReturn(true);
+
+        CreateOrderResponse response = orderService.createOrderByItems(
+                42L,
+                "idem-1",
+                "order:cart",
+                List.of(new OrderLineItem(1001L, 1, BigDecimal.ZERO), new OrderLineItem(1002L, 2, BigDecimal.ZERO)));
+
+        ArgumentCaptor<List<Order>> ordersCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<List<OrderItem>> orderItemsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(orderRepository).saveAll(ordersCaptor.capture());
+        verify(orderItemRepository).saveAll(orderItemsCaptor.capture());
+        verify(eventPublisher, times(2)).publishOrderCreated(anyString());
+
+        List<Order> savedOrders = ordersCaptor.getValue();
+        List<OrderItem> savedItems = orderItemsCaptor.getValue();
+        assertEquals(2, savedOrders.size());
+        assertEquals(2, savedItems.size());
+        assertTrue(response.isSplitByMerchant());
+        assertEquals(2, response.getOrderNos().size());
+        assertNotNull(response.getOrderNo());
+        assertEquals(response.getOrderNo(), response.getOrderNos().get(0));
+        assertTrue(savedOrders.stream().map(Order::getMerchantId).allMatch(id -> id == 7L || id == 8L));
+        assertTrue(savedItems.stream().map(OrderItem::getMerchantId).allMatch(id -> id == 7L || id == 8L));
+    }
+
+    @Test
     void payOrderUpdatesOnlyOwnedOrder() {
         when(orderRepository.updateStatusIfMatchAndUser("ORD-1", 42L, OrderStatus.CREATED, OrderStatus.PAID))
                 .thenReturn(1);
@@ -87,10 +145,26 @@ class OrderServiceTest {
     }
 
     @Test
+    void shipOrderUsesMerchantScopedUpdate() {
+        when(orderRepository.updateShipInfoByMerchant(
+                        "ORD-1", 7L, OrderStatus.PAID, OrderStatus.SHIPPED, "YTO", "TRACK-1"))
+                .thenReturn(1);
+
+        orderService.shipOrder(7L, "ORD-1", " YTO ", " TRACK-1 ", "MERCHANT");
+
+        verify(orderStateMachine).assertTransition(OrderStatus.PAID, OrderStatus.SHIPPED, "MERCHANT");
+        verify(orderRepository)
+                .updateShipInfoByMerchant("ORD-1", 7L, OrderStatus.PAID, OrderStatus.SHIPPED, "YTO", "TRACK-1");
+        verify(orderRepository, never())
+                .updateShipInfo("ORD-1", OrderStatus.PAID, OrderStatus.SHIPPED, "YTO", "TRACK-1");
+    }
+
+    @Test
     void getOrderDetailUsesUserScopedCacheKey() {
         Order order = new Order();
         order.setOrderNo("ORD-1");
         order.setUserId(42L);
+        order.setMerchantId(7L);
         order.setStatus(OrderStatus.CREATED);
         order.setTotalAmount(new BigDecimal("19.90"));
         order.setCarrierCode("YTO");
@@ -99,6 +173,7 @@ class OrderServiceTest {
 
         OrderItem item = new OrderItem();
         item.setOrderNo("ORD-1");
+        item.setMerchantId(7L);
         item.setSkuId(1001L);
         item.setQuantity(2);
         item.setPrice(new BigDecimal("9.95"));
@@ -108,11 +183,13 @@ class OrderServiceTest {
         when(orderRepository.findByOrderNoAndUserId("ORD-1", 42L)).thenReturn(Optional.of(order));
         when(orderItemRepository.findByOrderNo("ORD-1")).thenReturn(List.of(item));
 
-        orderService.getOrderDetail(42L, "ORD-1");
+        var response = orderService.getOrderDetail(42L, "ORD-1");
 
         verify(valueOperations).get("cache:order:42:ORD-1:v7");
         verify(orderRepository).findByOrderNoAndUserId("ORD-1", 42L);
         verify(orderRepository, never()).findByOrderNo("ORD-1");
         verify(valueOperations).set(anyString(), anyString(), any(Duration.class));
+        assertEquals(7L, response.getMerchantId());
+        assertFalse(response.getItems().isEmpty());
     }
 }

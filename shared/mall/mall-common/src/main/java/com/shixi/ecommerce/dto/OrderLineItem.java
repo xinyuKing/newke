@@ -16,12 +16,19 @@ public class OrderLineItem {
     /** 单价（服务端定价后写入）。 */
     private BigDecimal price;
 
+    private Long merchantId;
+
     public OrderLineItem() {}
 
     public OrderLineItem(Long skuId, Integer quantity, BigDecimal price) {
+        this(skuId, quantity, price, null);
+    }
+
+    public OrderLineItem(Long skuId, Integer quantity, BigDecimal price, Long merchantId) {
         this.skuId = skuId;
         this.quantity = quantity;
         this.price = price;
+        this.merchantId = merchantId;
     }
 
     public Long getSkuId() {
@@ -46,5 +53,13 @@ public class OrderLineItem {
 
     public void setPrice(BigDecimal price) {
         this.price = price;
+    }
+
+    public Long getMerchantId() {
+        return merchantId;
+    }
+
+    public void setMerchantId(Long merchantId) {
+        this.merchantId = merchantId;
     }
 }

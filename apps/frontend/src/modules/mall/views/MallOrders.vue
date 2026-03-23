@@ -17,11 +17,14 @@
 
     <div v-else-if="loading" class="empty card">Loading orders...</div>
     <div v-else-if="orders.length" class="order-list">
+      <div v-if="checkoutNotice" class="card notice">
+        {{ checkoutNotice }}
+      </div>
       <article v-for="order in orders" :key="order.orderNo" class="card order-card">
         <div>
           <div class="tag alt">{{ order.status }}</div>
           <h3>{{ order.orderNo }}</h3>
-          <p class="muted">{{ formatDateTime(order.createdAt) }}</p>
+          <p class="muted">Merchant {{ order.merchantId ?? "--" }} · {{ formatDateTime(order.createdAt) }}</p>
         </div>
         <div class="order-side">
           <strong>{{ formatCurrency(order.totalAmount) }}</strong>
@@ -38,15 +41,26 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
-import { RouterLink } from "vue-router";
+import { computed, onMounted, ref } from "vue";
+import { RouterLink, useRoute } from "vue-router";
 import mallApi from "../api/mall";
 import { useAuthStore } from "../../../stores/auth";
 import { formatCurrency, formatDateTime } from "../utils/format";
 
 const auth = useAuthStore();
+const route = useRoute();
 const orders = ref([]);
 const loading = ref(false);
+
+const checkoutNotice = computed(() => {
+  if (typeof route.query.created !== "string") return "";
+  const orderNos = route.query.created
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (orderNos.length < 2) return "";
+  return `Checkout created ${orderNos.length} merchant orders.`;
+});
 
 const loadOrders = async () => {
   if (!auth.mallCanShop) return;
@@ -70,7 +84,8 @@ onMounted(loadOrders);
 
 .page-head,
 .empty,
-.order-card {
+.order-card,
+.notice {
   padding: 22px;
 }
 
@@ -91,6 +106,10 @@ onMounted(loadOrders);
 .order-list {
   display: grid;
   gap: 14px;
+}
+
+.notice {
+  color: var(--muted);
 }
 
 .order-card {
