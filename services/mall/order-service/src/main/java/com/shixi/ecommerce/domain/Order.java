@@ -21,6 +21,8 @@ import java.time.LocalDateTime;
         indexes = {
             @Index(name = "idx_order_no", columnList = "orderNo", unique = true),
             @Index(name = "idx_user_id", columnList = "userId"),
+            @Index(name = "idx_order_user_created_id", columnList = "userId,createdAt,id"),
+            @Index(name = "idx_order_merchant_created_id", columnList = "merchantId,createdAt,id"),
             @Index(name = "idx_order_merchant_status_created", columnList = "merchantId,status,createdAt"),
             @Index(name = "idx_order_user_status_created", columnList = "userId,status,createdAt")
         })

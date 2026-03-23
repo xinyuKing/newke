@@ -19,7 +19,9 @@ import java.time.LocalDateTime;
         name = "product",
         indexes = {
             @Index(name = "idx_product_merchant", columnList = "merchantId"),
-            @Index(name = "idx_product_status", columnList = "status")
+            @Index(name = "idx_product_status", columnList = "status"),
+            @Index(name = "idx_product_status_created_id", columnList = "status,createdAt,id"),
+            @Index(name = "idx_product_merchant_created_id", columnList = "merchantId,createdAt,id")
         })
 public class Product {
     @Id

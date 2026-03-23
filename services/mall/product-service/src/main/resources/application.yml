@@ -59,8 +59,9 @@ inventory:
     url: ${MALL_INVENTORY_SERVICE_URL:http://localhost:18083}
 
 search:
-  provider: ${SEARCH_PROVIDER:db}
+  provider: ${SEARCH_PROVIDER:auto}
   fallback-to-db: ${SEARCH_FALLBACK:true}
+  cache-ttl-seconds: ${SEARCH_CACHE_TTL_SECONDS:60}
   opensearch:
     url: ${OPENSEARCH_URL:}
     index: ${OPENSEARCH_INDEX:products}
@@ -68,6 +69,8 @@ search:
     password: ${OPENSEARCH_PASS:}
     connect-timeout-ms: ${OPENSEARCH_CONN_TIMEOUT_MS:2000}
     read-timeout-ms: ${OPENSEARCH_READ_TIMEOUT_MS:3000}
+    initialize-on-startup: ${OPENSEARCH_INIT_ON_STARTUP:true}
+    bootstrap-batch-size: ${OPENSEARCH_BOOTSTRAP_BATCH_SIZE:200}
 
 security:
   client-ip:

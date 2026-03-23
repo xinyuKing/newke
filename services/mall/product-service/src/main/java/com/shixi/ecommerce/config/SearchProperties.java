@@ -12,8 +12,9 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "search")
 public class SearchProperties {
-    private String provider = "db";
+    private String provider = "auto";
     private boolean fallbackToDb = true;
+    private long cacheTtlSeconds = 60;
     private final OpenSearch openSearch = new OpenSearch();
 
     public String getProvider() {
@@ -32,6 +33,14 @@ public class SearchProperties {
         this.fallbackToDb = fallbackToDb;
     }
 
+    public long getCacheTtlSeconds() {
+        return cacheTtlSeconds;
+    }
+
+    public void setCacheTtlSeconds(long cacheTtlSeconds) {
+        this.cacheTtlSeconds = cacheTtlSeconds;
+    }
+
     public OpenSearch getOpenSearch() {
         return openSearch;
     }
@@ -43,6 +52,8 @@ public class SearchProperties {
         private String password;
         private int connectTimeoutMs = 2000;
         private int readTimeoutMs = 3000;
+        private boolean initializeOnStartup = true;
+        private int bootstrapBatchSize = 200;
 
         public String getUrl() {
             return url;
@@ -90,6 +101,22 @@ public class SearchProperties {
 
         public void setReadTimeoutMs(int readTimeoutMs) {
             this.readTimeoutMs = readTimeoutMs;
+        }
+
+        public boolean isInitializeOnStartup() {
+            return initializeOnStartup;
+        }
+
+        public void setInitializeOnStartup(boolean initializeOnStartup) {
+            this.initializeOnStartup = initializeOnStartup;
+        }
+
+        public int getBootstrapBatchSize() {
+            return bootstrapBatchSize;
+        }
+
+        public void setBootstrapBatchSize(int bootstrapBatchSize) {
+            this.bootstrapBatchSize = bootstrapBatchSize;
         }
     }
 }

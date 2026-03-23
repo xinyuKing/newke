@@ -57,4 +57,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     List<Product> findByStatusAndNameContainingIgnoreCaseAndIdLessThanOrderByIdDesc(
             ProductStatus status, String name, Long id, Pageable pageable);
+
+    List<Product> findByIdGreaterThanOrderByIdAsc(Long id, Pageable pageable);
 }

@@ -13,10 +13,10 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -24,7 +24,10 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +44,7 @@ public class ProductService {
     private static final Duration PRODUCT_CACHE_TTL = Duration.ofMinutes(5);
     private static final String PRODUCT_VERSION_PREFIX = "ver:product:";
     private static final String PRODUCT_CACHE_PREFIX = "cache:product:";
+    private static final String SEARCH_VERSION_KEY = "ver:search:products";
 
     private final ProductRepository productRepository;
     private final InventoryClient inventoryClient;
@@ -90,6 +94,7 @@ public class ProductService {
         productRepository.save(product);
         inventoryClient.initStock(product.getId(), request.getStock());
         bumpProductVersion(product.getId());
+        bumpSearchVersion();
         productIndexPublisher.publishAfterCommit(product.getId());
         return productMapper.toResponse(product);
     }
@@ -239,17 +244,31 @@ public class ProductService {
         if (skuIds == null || skuIds.isEmpty()) {
             return List.of();
         }
-        Set<Long> unique = new LinkedHashSet<>(skuIds);
-        List<Product> products = productRepository.findAllById(unique);
-        Map<Long, Product> productMap = new HashMap<>(products.size() * 2);
-        for (Product product : products) {
-            productMap.put(product.getId(), product);
+        List<Long> uniqueSkuIds = new ArrayList<>(new LinkedHashSet<>(skuIds));
+        Map<Long, String> versions = getVersions(uniqueSkuIds);
+        Map<Long, ProductResponse> responseMap = getBatchCache(uniqueSkuIds, versions);
+        if (responseMap.size() < uniqueSkuIds.size()) {
+            List<Long> missedIds = uniqueSkuIds.stream()
+                    .filter(id -> !responseMap.containsKey(id))
+                    .toList();
+            List<Product> products = productRepository.findAllById(missedIds);
+            Map<String, String> cacheEntries = new LinkedHashMap<>();
+            for (Product product : products) {
+                ProductResponse response = productMapper.toResponse(product);
+                responseMap.put(product.getId(), response);
+                String json = writeJson(response);
+                if (json != null) {
+                    cacheEntries.put(
+                            productCacheKey(product.getId(), versions.getOrDefault(product.getId(), "0")), json);
+                }
+            }
+            setBatchCache(cacheEntries, PRODUCT_CACHE_TTL);
         }
-        List<ProductResponse> responses = new ArrayList<>(unique.size());
-        for (Long id : unique) {
-            Product product = productMap.get(id);
-            if (product != null) {
-                responses.add(productMapper.toResponse(product));
+        List<ProductResponse> responses = new ArrayList<>(uniqueSkuIds.size());
+        for (Long id : uniqueSkuIds) {
+            ProductResponse response = responseMap.get(id);
+            if (response != null) {
+                responses.add(response);
             }
         }
         return responses;
@@ -273,11 +292,19 @@ public class ProductService {
         return PRODUCT_VERSION_PREFIX + skuId;
     }
 
+    private String productCacheKey(Long skuId, String version) {
+        return PRODUCT_CACHE_PREFIX + skuId + ":v" + version;
+    }
+
     private void bumpProductVersion(Long skuId) {
         if (skuId == null) {
             return;
         }
         redisTemplate.opsForValue().increment(productVersionKey(skuId));
+    }
+
+    private void bumpSearchVersion() {
+        redisTemplate.opsForValue().increment(SEARCH_VERSION_KEY);
     }
 
     private String getVersion(String key) {
@@ -288,8 +315,94 @@ public class ProductService {
         return value;
     }
 
+    private Map<Long, String> getVersions(List<Long> skuIds) {
+        List<String> versionKeys = skuIds.stream().map(this::productVersionKey).collect(Collectors.toList());
+        List<String> versionValues;
+        try {
+            versionValues = redisTemplate.opsForValue().multiGet(versionKeys);
+        } catch (Exception ex) {
+            versionValues = null;
+        }
+        Map<Long, String> versions = new HashMap<>(skuIds.size() * 2);
+        for (int i = 0; i < skuIds.size(); i++) {
+            String version = versionValues != null && i < versionValues.size() ? versionValues.get(i) : null;
+            versions.put(skuIds.get(i), version == null ? "0" : version);
+        }
+        return versions;
+    }
+
+    private Map<Long, ProductResponse> getBatchCache(List<Long> skuIds, Map<Long, String> versions) {
+        List<String> cacheKeys = skuIds.stream()
+                .map(id -> productCacheKey(id, versions.getOrDefault(id, "0")))
+                .collect(Collectors.toList());
+        List<String> cacheValues;
+        try {
+            cacheValues = redisTemplate.opsForValue().multiGet(cacheKeys);
+        } catch (Exception ex) {
+            return new HashMap<>();
+        }
+        Map<Long, ProductResponse> responseMap = new HashMap<>(skuIds.size() * 2);
+        if (cacheValues == null) {
+            return responseMap;
+        }
+        for (int i = 0; i < skuIds.size() && i < cacheValues.size(); i++) {
+            String json = cacheValues.get(i);
+            if (json == null || json.isBlank()) {
+                continue;
+            }
+            ProductResponse response = readJson(json, new TypeReference<ProductResponse>() {});
+            if (response != null) {
+                responseMap.put(skuIds.get(i), response);
+            }
+        }
+        return responseMap;
+    }
+
     private <T> T getCache(String key, TypeReference<T> typeRef) {
         String json = redisTemplate.opsForValue().get(key);
+        return readJson(json, typeRef);
+    }
+
+    private void setCache(String key, Object value, Duration ttl) {
+        String json = writeJson(value);
+        if (json == null) {
+            return;
+        }
+        try {
+            redisTemplate.opsForValue().set(key, json, ttl);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void setBatchCache(Map<String, String> entries, Duration ttl) {
+        if (entries.isEmpty()) {
+            return;
+        }
+        try {
+            redisTemplate.executePipelined(new SessionCallback<Object>() {
+                @Override
+                @SuppressWarnings("unchecked")
+                public Object execute(RedisOperations operations) {
+                    ValueOperations<String, String> ops = operations.opsForValue();
+                    for (Map.Entry<String, String> entry : entries.entrySet()) {
+                        ops.set(entry.getKey(), entry.getValue(), ttl);
+                    }
+                    return null;
+                }
+            });
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private <T> T readJson(String json, TypeReference<T> typeRef) {
         if (json == null || json.isBlank()) {
             return null;
         }
@@ -297,14 +410,6 @@ public class ProductService {
             return objectMapper.readValue(json, typeRef);
         } catch (Exception ex) {
             return null;
-        }
-    }
-
-    private void setCache(String key, Object value, Duration ttl) {
-        try {
-            String json = objectMapper.writeValueAsString(value);
-            redisTemplate.opsForValue().set(key, json, ttl);
-        } catch (Exception ignored) {
         }
     }
 }
