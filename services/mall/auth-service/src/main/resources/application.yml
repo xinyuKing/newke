@@ -1,0 +1,61 @@
+﻿server:
+  port: 18081
+
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ecommerce_auth?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:30}
+      minimum-idle: ${DB_POOL_MIN:10}
+      connection-timeout: ${DB_CONN_TIMEOUT_MS:2000}
+      idle-timeout: ${DB_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+  cloud:
+    openfeign:
+      client:
+        config:
+          communityUserInternalClient:
+            connectTimeout: ${COMMUNITY_USER_CONNECT_TIMEOUT_MS:2000}
+            readTimeout: ${COMMUNITY_USER_READ_TIMEOUT_MS:5000}
+
+security:
+  jwt:
+    # 认证服务负责签发令牌，网关与其余商城服务必须使用同一密钥进行验签。
+    secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
+    expire-minutes: ${JWT_EXPIRE_MINUTES:120}
+
+community:
+  user-service:
+    # 内部调用直接访问论坛用户中心，不再反向走统一网关。
+    base-url: ${COMMUNITY_USER_BASE_URL:http://localhost:8081/community}
+
+logging:
+  level:
+    root: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

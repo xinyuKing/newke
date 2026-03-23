@@ -1,0 +1,133 @@
+﻿server:
+  port: 18086
+
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ecommerce_support?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:30}
+      minimum-idle: ${DB_POOL_MIN:10}
+      connection-timeout: ${DB_CONN_TIMEOUT_MS:2000}
+      idle-timeout: ${DB_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT_MS:1000}ms
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX:32}
+          max-idle: ${REDIS_POOL_MAX_IDLE:16}
+          min-idle: ${REDIS_POOL_MIN_IDLE:4}
+          max-wait: ${REDIS_POOL_MAX_WAIT_MS:2000}ms
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
+    expire-minutes: ${JWT_EXPIRE_MINUTES:120}
+
+logging:
+  level:
+    root: INFO
+
+refund:
+  intent:
+    algorithm: NAIVE_BAYES
+    threshold: 0.6
+  rag:
+    collections:
+      refund_policy:
+        - "Refund policy: quality issues require photo/video evidence."
+        - "No-reason returns are allowed within 7 days if unused and with intact packaging."
+        - "Wrong item or missing parts can be returned without return shipping cost."
+        - "Not-received orders are escalated to logistics verification before refund."
+      logistics_policy:
+        - "Logistics policy: shipments without updates for 48 hours should be escalated."
+        - "For delivered but not received claims, verify address and carrier proof of delivery."
+      risk_policy:
+        - "Risk policy: frequent refund requests require manual review."
+        - "High-value orders need dual approval for instant refund."
+  model:
+    profiles:
+      REFUND_MASTER:
+        base: "qwen2.5-7b"
+        ft: "ft-refund-master-lora"
+        rag: "refund_policy"
+        maxTokens: 512
+        temperature: 0.2
+      REFUND_ORDER:
+        base: "qwen2.5-3b"
+        ft: "ft-refund-order"
+        rag: "refund_policy"
+        maxTokens: 256
+        temperature: 0.1
+      REFUND_REASON:
+        base: "qwen2.5-3b"
+        ft: "ft-refund-reason"
+        rag: "refund_policy"
+        maxTokens: 256
+        temperature: 0.1
+      REFUND_EVIDENCE:
+        base: "qwen2.5-3b"
+        ft: "ft-refund-evidence"
+        rag: "refund_policy"
+        maxTokens: 256
+        temperature: 0.1
+      REFUND_POLICY:
+        base: "qwen2.5-7b"
+        ft: "ft-refund-policy"
+        rag: "refund_policy"
+        maxTokens: 512
+        temperature: 0.2
+      REFUND_LOGISTICS:
+        base: "qwen2.5-3b"
+        ft: "ft-refund-logistics"
+        rag: "logistics_policy"
+        maxTokens: 256
+        temperature: 0.1
+      REFUND_RISK:
+        base: "qwen2.5-1.5b"
+        ft: "ft-refund-risk"
+        rag: "risk_policy"
+        maxTokens: 256
+        temperature: 0.0
+      REFUND_FUSION:
+        base: "qwen2.5-14b"
+        ft: "ft-refund-fusion"
+        rag: "refund_policy"
+        maxTokens: 768
+        temperature: 0.2
+      REFUND_FEEDBACK:
+        base: "qwen2.5-1.5b"
+        ft: "ft-refund-feedback"
+        rag: "refund_policy"
+        maxTokens: 128
+        temperature: 0.0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

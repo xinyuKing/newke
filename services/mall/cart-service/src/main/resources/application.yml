@@ -1,0 +1,108 @@
+﻿server:
+  port: 18085
+
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ecommerce_cart?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:30}
+      minimum-idle: ${DB_POOL_MIN:10}
+      connection-timeout: ${DB_CONN_TIMEOUT_MS:2000}
+      idle-timeout: ${DB_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+  cache:
+    type: caffeine
+  caffeine:
+    spec: maximumSize=5000,expireAfterWrite=120s
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT_MS:1000}ms
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX:32}
+          max-idle: ${REDIS_POOL_MAX_IDLE:16}
+          min-idle: ${REDIS_POOL_MIN_IDLE:4}
+          max-wait: ${REDIS_POOL_MAX_WAIT_MS:2000}ms
+
+product:
+  service:
+    url: ${MALL_PRODUCT_SERVICE_URL:http://localhost:18082}
+
+order:
+  service:
+    url: ${MALL_ORDER_SERVICE_URL:http://localhost:18084}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
+    expire-minutes: ${JWT_EXPIRE_MINUTES:120}
+
+logging:
+  level:
+    root: INFO
+
+cart:
+  rate-limit:
+    window-seconds: ${CART_RATE_WINDOW:60}
+    user-max: ${CART_RATE_USER_MAX:60}
+    ip-max: ${CART_RATE_IP_MAX:120}
+    algorithm: ${CART_RATE_ALGO:fixed}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      productClient:
+        sliding-window-size: 50
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+      orderClient:
+        sliding-window-size: 50
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+  retry:
+    instances:
+      productClient:
+        max-attempts: 2
+        wait-duration: 100ms
+      orderClient:
+        max-attempts: 2
+        wait-duration: 100ms
+  bulkhead:
+    instances:
+      productClient:
+        max-concurrent-calls: 50
+        max-wait-duration: 0
+      orderClient:
+        max-concurrent-calls: 50
+        max-wait-duration: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

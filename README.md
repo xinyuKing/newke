@@ -1,543 +1,438 @@
-# Newke 融合社区与商城微服务平台
+# Newke
 
-## 项目介绍
+Newke 是一个把“论坛社区”和“电商商城”真正整合到同一仓库中的多模块项目。
 
-这是一个把论坛社区和电商商城放进同一仓库的融合项目。
+这个仓库不是把两个系统简单并排摆放，而是围绕“统一入口、统一用户体系、统一网关、独立服务边界”重新整理后的工程结构：
 
-论坛侧保留了原来的社区能力，包括注册登录、帖子发布、评论回复、点赞关注、私信通知、媒体上传、站点统计、热帖刷新、搜索和分享。商城侧按业务域拆成认证、商品、库存、订单、购物车、客服、网关等服务，覆盖从登录、浏览商品、加入购物车、下单、库存扣减到售后支持的一整条链路。
+- 前端统一为 `apps/frontend`，论坛与商城都在同一个 Vue 3 应用中承载。
+- 后端统一通过 `apps/gateway-service` 对外暴露入口。
+- 论坛域与商城域在服务层面平级运行，互相调用走内部地址，不反向穿透网关。
+- 用户体系以论坛 `community-user-service` 为主账号中心，商城 `auth-service` 负责商城侧 JWT、地址簿、角色与状态扩展能力。
+- 根目录 `pom.xml` 作为聚合工程，统一管理论坛父 POM、商城父 POM 和所有服务模块。
 
-这套仓库现在最有意思的地方，不是单纯把两个项目放在一起，而是已经把用户系统打通了。商城的 `auth-service` 不再自己独立维护一套主账号体系，而是通过论坛侧的 `community-user-service` 完成注册和登录，再把社区用户同步成商城本地账号，并继续签发 JWT 给商城各服务使用。换句话说，论坛账号已经是商城账号的上游身份源。
+## 项目亮点
 
-当前仓库仍然处在“能跑、能联调、但还没完全统一治理”的阶段。论坛侧偏 Spring Boot 2.7 / MyBatis / Nacos，商城侧偏 Spring Boot 3.3 / JPA / JWT。两边已经整合到一个代码仓库里，但在构建体系、端口规划、初始化脚本这些方面，还保留着明显的过渡痕迹。README 会把这些情况写清楚，方便你部署、展示和继续迭代。
+### 1. 论坛与商城前后端一体化整合
+
+- 单仓库维护前端、网关、论坛服务、商城服务、共享模块、SQL 与部署脚本。
+- Vue 3 前端同时承载论坛页面与商城页面，路由层已融合。
+- 网关统一转发 `/community/**` 与 `/api/**` 两类请求，浏览器只需要认识一个后端入口。
+
+### 2. 用户体系重点融合
+
+当前用户链路按“主账号 + 业务扩展”设计：
+
+- 论坛 `community-user-service` 负责账号注册、登录、基础资料、头像、激活等主账号能力。
+- 商城 `auth-service` 通过内部 Feign 直接调用论坛用户中心完成登录/注册协同。
+- 商城侧继续负责 JWT 签发、商城用户资料、收货地址、管理后台用户状态与角色维护。
+- 网关完成 JWT 校验后，统一向下游透传 `X-User-Id`、`X-User-Role`。
+
+这意味着：
+
+- 浏览器层看起来是一个站点。
+- 认证层是一套主账号。
+- 商城和论坛仍保留各自清晰的业务边界。
+
+### 3. 服务边界清晰，不再互相套娃
+
+本项目明确区分三层边界：
+
+- 公网入口边界：只有前端和网关对浏览器开放。
+- 内部服务边界：服务与服务之间直接通信，不反向走网关。
+- 数据边界：论坛和商城数据库按职责拆分，基础设施统一外置配置。
+
+典型例子：
+
+- 商城 `auth-service` 不再通过 `gateway-service` 去调用论坛登录接口。
+- 商品、订单、购物车、库存之间的内部 URL 都通过环境变量声明。
+- 七牛上传域名、JWT 密钥、Redis/Kafka/Nacos/Elasticsearch 地址不再写死在代码里。
+
+### 4. 结构整理完成，旧商城目录已彻底移除
+
+仓库已经完成以下结构清理：
+
+- 移除 `ecommerce/` 旧目录。
+- 移除 `ecommerce-parent/`，商城父 POM 已并入 `platform/mall-parent`。
+- 旧论坛网关实现迁移到 `legacy/community-gateway/`，仅作归档参考，不再参与当前启动链路。
 
 ## 仓库结构
 
 ```text
 newke
-├─ community-common              # 论坛公共模块
-├─ community-user-service        # 论坛用户服务
-├─ community-post-service        # 论坛主站、帖子、评论、搜索、分享
-├─ community-message-service     # 论坛消息服务
-├─ community-social-service      # 论坛点赞、关注
-├─ community-media-service       # 论坛媒体上传
-├─ community-data-service        # 论坛 UV / DAU 统计
-├─ community-gateway             # 论坛网关骨架，当前仍是预留模块
-├─ common                        # 商城公共模块
-├─ auth-service                  # 商城认证与账户资料
-├─ product-service               # 商城商品与评价
-├─ inventory-service             # 商城库存
-├─ order-service                 # 商城订单
-├─ cart-service                  # 商城购物车
-├─ support-service               # 商城客服与售后
-├─ gateway-service               # 商城统一网关
-├─ frontend                      # Vue 3 前端
-├─ pom.xml                       # 仓库根聚合 POM
-└─ README.md
+|-- apps/
+|   |-- frontend/
+|   `-- gateway-service/
+|-- services/
+|   |-- forum/
+|   |   |-- community-user-service/
+|   |   |-- community-post-service/
+|   |   |-- community-social-service/
+|   |   |-- community-message-service/
+|   |   |-- community-media-service/
+|   |   `-- community-data-service/
+|   `-- mall/
+|       |-- auth-service/
+|       |-- product-service/
+|       |-- inventory-service/
+|       |-- order-service/
+|       |-- cart-service/
+|       `-- support-service/
+|-- shared/
+|   |-- forum/community-common/
+|   `-- mall/mall-common/
+|-- platform/
+|   |-- forum-parent/
+|   `-- mall-parent/
+|-- deploy/
+|   `-- local/
+|-- docs/
+|   `-- architecture/
+|-- sql/
+|-- scripts/
+|   `-- dev/
+|-- legacy/
+|   `-- community-gateway/
+`-- pom.xml
 ```
 
-## 子系统总览
+## 模块说明
 
-### 论坛侧模块
+### 前端与网关
 
-| 模块 | 默认端口 | 作用 | 关键依赖 |
-| --- | --- | --- | --- |
-| `community-post-service` | `8080` | 论坛主站入口，负责帖子、评论、搜索、分享、Thymeleaf 页面渲染 | MySQL `study`、Redis、Kafka、Elasticsearch、Quartz、邮件、七牛云、wkhtmltoimage |
-| `community-user-service` | `8081` | 注册、登录、验证码、激活、密码修改、头像修改、论坛用户资料 | MySQL `study`、Redis、邮件、Nacos |
-| `community-message-service` | `8082` | 私信、系统通知、消息详情、分享相关能力 | MySQL `study`、Kafka、Elasticsearch、Nacos、七牛云、wkhtmltoimage |
-| `community-social-service` | `8083` | 点赞、关注、粉丝、关注列表 | Redis、Kafka、Nacos |
-| `community-media-service` | `8084` | 图片和视频上传、媒体类型校验、媒体目录管理 | Redis、Nacos、本地文件目录 |
-| `community-data-service` | `8085` | UV / DAU 统计与后台数据面板 | Redis、Nacos |
-| `community-gateway` | 未配置 | 论坛网关骨架，当前只有启动类，没有完整路由配置 | Spring Cloud Gateway、Nacos |
-| `community-common` | 无 | 论坛公共实体、工具类、统一响应结构 | 被论坛服务依赖 |
-
-### 商城侧模块
-
-| 模块 | 默认端口 | 作用 | 关键依赖 |
-| --- | --- | --- | --- |
-| `gateway-service` | `8080` | 商城统一网关，负责 `/api/**` 路由、JWT 校验、限流、熔断 | Redis |
-| `auth-service` | `18081` | 商城登录、注册、JWT 签发、个人资料、地址管理 | MySQL `ecommerce_auth`、论坛用户服务 |
-| `product-service` | `18082` | 商品、评价、搜索、推荐、评价摘要与统计 | MySQL `ecommerce_product`、Redis、RabbitMQ、库存服务、可选 OpenSearch |
-| `inventory-service` | `18083` | 库存初始化、扣减、释放、批量库存操作 | MySQL `ecommerce_inventory`、Redis、Lua |
-| `order-service` | `18084` | 下单、取消、支付、发货、收货、物流、订单事件 | MySQL `ecommerce_order`、Redis、RabbitMQ、商品服务、库存服务 |
-| `cart-service` | `18085` | 购物车增删改查、结算、转订单 | MySQL `ecommerce_cart`、Redis、商品服务、订单服务 |
-| `support-service` | `18086` | 客服对话、售后单、退款意图识别、退款规则与模型配置 | MySQL `ecommerce_support`、Redis |
-| `common` | 无 | 商城公共 DTO、安全组件、异常和统一响应 | 被商城服务依赖 |
-
-### 前端模块
-
-| 模块 | 默认端口 | 作用 |
+| 模块 | 作用 | 默认端口 |
 | --- | --- | --- |
-| `frontend` | `5173` | Vue 3 + Vite 前端开发入口，默认代理论坛主站后端 |
+| `apps/frontend` | 统一前端应用，承载论坛与商城界面 | `5173` |
+| `apps/gateway-service` | 统一鉴权、限流、熔断、路由转发入口 | `8080` |
 
-## 用户系统融合说明
+### 论坛域服务
 
-这是目前整个仓库最关键的一条整合链路。
+| 模块 | 作用 | 默认端口 |
+| --- | --- | --- |
+| `services/forum/community-user-service` | 用户、登录、注册、资料、头像、激活 | `8081` |
+| `services/forum/community-message-service` | 私信、通知、分享图生成、消息消费 | `8082` |
+| `services/forum/community-social-service` | 点赞、关注、粉丝关系 | `8083` |
+| `services/forum/community-media-service` | 论坛媒体资源管理 | `8084` |
+| `services/forum/community-data-service` | UV/DAU、后台统计数据 | `8085` |
+| `services/forum/community-post-service` | 帖子、评论、搜索、分享、内容审核 | `8086` |
 
-1. 论坛用户服务开放了内部认证接口：
-   - `POST /community/api/auth/login`
-   - `POST /community/api/auth/register`
-2. 商城 `auth-service` 中的 `CommunityUserClient` 会调用论坛用户服务完成注册和登录。
-3. 商城登录成功后，会把论坛用户同步到本地 `user_account` 表，并直接使用论坛用户 ID 作为商城用户 ID。
-4. 商城侧再基于这个统一用户签发 JWT，由 `gateway-service` 统一解析，并透传 `X-User-Id`、`X-User-Role` 给下游服务。
+### 商城域服务
 
-这意味着论坛和商城已经共享主账号身份，不是两套互相独立的用户系统。
+| 模块 | 作用 | 默认端口 |
+| --- | --- | --- |
+| `services/mall/auth-service` | 商城认证、JWT、用户资料、地址、后台用户管理 | `18081` |
+| `services/mall/product-service` | 商品、商家商品、评价、搜索、推荐 | `18082` |
+| `services/mall/inventory-service` | 库存初始化、扣减、释放、锁定 | `18083` |
+| `services/mall/order-service` | 下单、支付、发货、确认收货、物流查询 | `18084` |
+| `services/mall/cart-service` | 购物车、结算前聚合 | `18085` |
+| `services/mall/support-service` | 售后、客服会话、退款意图、AI 辅助能力 | `18086` |
 
-### 当前角色映射
+### 共享模块
 
-商城 `auth-service` 里对论坛角色做了一个简单映射：
-
-| 论坛用户 `type` | 商城角色 |
+| 模块 | 作用 |
 | --- | --- |
-| `0` | `USER` |
-| `1` | `ADMIN` |
-| `2` | `SUPPORT` |
+| `shared/forum/community-common` | 论坛公共实体、常量、工具类、事件定义 |
+| `shared/mall/mall-common` | 商城公共 DTO、异常、JWT、安全能力 |
+| `platform/forum-parent` | 论坛域父 POM |
+| `platform/mall-parent` | 商城域父 POM |
 
-也就是说，论坛侧的版主角色目前在商城侧会被映射成客服/支持角色。如果后面你想改成 `MERCHANT` 或者单独新增映射逻辑，需要继续调整 `auth-service`。
+## 当前技术栈与版本基线
 
-## 项目亮点
+### 后端
 
-### 1. 同仓库融合两套业务系统
-
-这不是单一论坛，也不是单一商城，而是把“内容社区”和“交易系统”放进了一个仓库里。社区负责内容、关系、互动和用户沉淀，商城负责商品、库存、订单和售后，两边既能单独运行，也能围绕统一账号逐步联动。
-
-### 2. 用户体系已经完成第一阶段打通
-
-账号不再重复注册。商城认证服务已经接到论坛用户服务上，社区用户就是商城用户的身份源，登录注册逻辑不需要再维护两份。这一步很关键，因为后续无论做“帖子带货”“用户画像联动”“社区账号直达商城订单页”，都建立在统一身份之上。
-
-### 3. 论坛侧功能相对完整
-
-论坛部分不是一个只剩登录和发帖的壳，而是已经覆盖了比较完整的社区能力：
-
-- 注册、激活、验证码、登录、退出
-- 发帖、评论、回复、帖子详情页
-- 点赞、关注、粉丝与关注列表
-- 私信、系统通知
-- 搜索、分享、热帖分数刷新
-- 媒体上传和数据统计
-
-这部分还保留了传统站点风格的服务端渲染页面，适合做教学、答辩和演示。
-
-### 4. 商城侧按业务域拆分得比较清楚
-
-商城不是“大单体商城”写法，而是按认证、商品、库存、订单、购物车、客服拆成独立服务。每个服务只关心自己的业务边界，比如库存服务只管库存一致性，订单服务只管下单流转和状态机，商品服务只管商品和评价，这样后面继续扩展时比较顺手。
-
-### 5. 库存与订单链路考虑了并发问题
-
-库存服务使用 Redis + Lua 脚本做扣减，订单服务也做了批量调用、状态机和事件发布，说明这个项目不是只做“接口能通”，而是已经开始考虑热点场景下的数据一致性和吞吐问题。
-
-### 6. 商城侧有比较明显的性能优化意识
-
-商城部分已经放进了一些很实用的工程化手段：
-
-- 批量商品查询和批量库存扣减，减少跨服务调用次数
-- Caffeine 本地缓存，降低热点读取开销
-- RabbitMQ 异步化评价统计、订单事件和索引更新
-- Resilience4j 熔断、重试、舱壁隔离
-- Micrometer + Prometheus 指标暴露
-
-这些东西不是为了堆名词，而是能看出作者已经在往“真实系统”方向推。
-
-### 7. AI 相关能力不是装饰项
-
-论坛 `community-post-service` 里已经预留了兼容 OpenAI 的内容审核配置，商城 `support-service` 里也有退款意图识别、RAG 资料库和多模型配置。这部分还谈不上完整产品化，但已经不是单纯写在 README 里的概念，而是进入了代码和配置层。
-
-### 8. 同时保留传统页面和前后端分离入口
-
-论坛侧目前既有基于 Thymeleaf 的页面，也有 `frontend` 里的 Vue 3 前端。前者适合快速演示和现成页面复用，后者适合后续继续前后端分离改造。
-
-## 技术栈
-
-### 论坛侧
-
-- Java 11
-- Spring Boot 2.7.18
-- Spring Cloud 2021
-- Spring Cloud Alibaba Nacos
+- JDK 17
+- Maven 3.8+
+- Spring Boot 3.2.9
+- Spring Cloud 2023.0.1
+- Spring Cloud Alibaba 2023.0.1.3
+- Spring Security 6
+- Spring Cloud Gateway
 - OpenFeign
-- MyBatis
+- MyBatis + JPA（论坛与商城分别保留原有数据访问风格）
 - Redis
 - Kafka
-- Elasticsearch
-- Quartz
-- Thymeleaf
-- Caffeine
-- Qiniu
-- wkhtmltoimage
-
-### 商城侧
-
-- Java 17
-- Spring Boot 3.3.2
-- Spring Cloud 2023
-- Spring Security
-- JWT
-- Spring Data JPA
-- Redis
 - RabbitMQ
-- Caffeine
-- Resilience4j
-- Micrometer / Prometheus
-- 可选 OpenSearch
+- Nacos
+- Elasticsearch 8.x / 可扩展 OpenSearch
 
 ### 前端
 
 - Vue 3
-- Vite
+- Vue Router 4
 - Pinia
-- Vue Router
 - Axios
+- Vite 5
 
-## 部署前准备
+### 基础设施（本地模板）
 
-### 1. 基础环境
+`deploy/local/docker-compose.yml` 当前包含：
 
-建议准备下面这些基础组件：
+- MySQL 8.0.36
+- Redis 7.2.4
+- Zookeeper 3.9
+- Kafka 3.6
+- Nacos 2.3.2
+- RabbitMQ 3.13 Management
+- Elasticsearch 8.13.4
+
+## 版本说明
+
+### 为什么当前必须使用 JDK 17
+
+本项目已经统一到 Spring Boot 3.2.9。
+
+Spring Boot 3.x 的官方运行基线就是 JDK 17，因此当前仓库不能再以 JDK 11 作为运行标准。换句话说：
+
+- `Spring Boot 3.x + JDK 11` 不是一个可持续的组合。
+- 当前仓库的正确基线是 `JDK 17 + Spring Boot 3.2.9`。
+
+如果后续继续升级 Spring 生态，JDK 17 仍然是更稳妥的长期基线。
+
+## 用户体系融合设计
+
+这一部分是整个整合工程最关键的地方。
+
+### 设计原则
+
+- 主账号只保留一套。
+- 商城不再重复建设另一套基础账号体系。
+- 商城保留自己的业务扩展字段和认证令牌能力。
+- 浏览器访问仍然只走统一网关。
+- 内部服务调用直接走内网地址。
+
+### 当前落地方式
+
+1. 用户注册时，商城 `auth-service` 会通过内部 Feign 调用论坛 `community-user-service`。
+2. 用户登录时，商城仍复用论坛用户校验结果。
+3. 登录成功后，商城签发自己的 JWT，供 `/api/**` 体系使用。
+4. 网关校验 JWT 后，把用户 ID 和角色透传给商城服务。
+5. 论坛保留自己的社区页面、社区接口与资料体系。
+6. 商城保留地址簿、角色、启停状态、后台用户管理等商城专属能力。
+
+### 带来的收益
+
+- 用户不需要在论坛和商城分别注册两次。
+- 论坛仍然可以独立演进帖子、消息、社交能力。
+- 商城仍然可以独立演进订单、库存、售后能力。
+- 用户中心的职责划分比“所有东西都塞到一个服务里”更清晰。
+
+## 本地开发与部署
+
+### 1. 环境准备
+
+在启动项目之前，请先确认本机具备以下环境：
 
 - JDK 17
 - Maven 3.8+
 - Node.js 18+
-- MySQL 8.x
-- Redis 6.x 或更高
-- Kafka
-- Nacos 2.x
-- RabbitMQ 3.x
+- Docker / Docker Compose
 
-可选但强烈建议准备：
+### 2. 启动基础设施
 
-- Elasticsearch 或 OpenSearch
-- wkhtmltoimage
-- 邮箱 SMTP 服务
-- 七牛云对象存储
-
-### 2. 数据库
-
-本仓库里当前没有现成的 SQL 初始化脚本，因此要区分两类情况：
-
-- 商城侧大多数服务使用 `spring.jpa.hibernate.ddl-auto=update`，只要数据库存在，服务启动后可以自动建表或更新表结构。
-- 论坛侧使用 MyBatis，默认依赖现成的 `study` 库表结构。仓库没有附带完整建表 SQL，所以部署论坛时需要你自己准备 `study` 库以及相关表，尤其是用户、帖子、评论、消息、登录凭证、Quartz 调度表等。
-
-建议先手动创建这些数据库：
-
-```sql
-CREATE DATABASE study DEFAULT CHARACTER SET utf8mb4;
-CREATE DATABASE ecommerce_auth DEFAULT CHARACTER SET utf8mb4;
-CREATE DATABASE ecommerce_product DEFAULT CHARACTER SET utf8mb4;
-CREATE DATABASE ecommerce_inventory DEFAULT CHARACTER SET utf8mb4;
-CREATE DATABASE ecommerce_order DEFAULT CHARACTER SET utf8mb4;
-CREATE DATABASE ecommerce_cart DEFAULT CHARACTER SET utf8mb4;
-CREATE DATABASE ecommerce_support DEFAULT CHARACTER SET utf8mb4;
-```
-
-### 3. 配置安全项
-
-当前配置文件里有一些明显不适合直接用于共享环境或生产环境的敏感信息，比如：
-
-- SMTP 用户名和授权码
-- 七牛云 Access Key / Secret Key
-- JWT Secret
-
-本地演示可以先沿用，真正部署或开源前建议全部迁移到环境变量或私有配置中心。
-
-## 部署说明
-
-### 先说结论
-
-当前仓库最稳妥的启动方式，不是“根目录一把梭全部跑起来”，而是按子系统、按模块逐个启动。原因很简单：
-
-- 论坛侧和商城侧的技术栈版本还没有完全统一
-- 论坛主站和商城网关默认都占用 `8080`
-- 论坛库初始化脚本没有在仓库里提供
-
-也就是说，这个仓库已经完成了“代码级整合”和“用户系统融合”，但部署治理还处在过渡阶段。
-
-### 方案一：只启动论坛侧
-
-适合做论坛功能演示、社区模块开发或 Vue 前端联调。
-
-#### 前置依赖
-
-- MySQL：准备 `study`
-- Redis
-- Kafka
-- Nacos
-- 可选：Elasticsearch、wkhtmltoimage、七牛云、SMTP
-
-#### 推荐启动顺序
-
-1. `community-user-service`
-2. `community-message-service`
-3. `community-social-service`
-4. `community-media-service`
-5. `community-data-service`
-6. `community-post-service`
-
-#### 启动命令示例
-
-下面是最直白的模块内启动方式：
+项目已经提供本地基础设施编排文件：
 
 ```bash
-cd community-user-service
+cd deploy/local
+docker compose --env-file .env.example up -d
+```
+
+该编排会自动挂载以下 SQL：
+
+- `sql/mall/00-create-databases.sql`
+- `sql/forum/00-study-schema.sql`
+- `sql/forum/01-quartz-tables.sql`
+
+### 3. 关键环境变量
+
+建议把 `deploy/local/.env.example` 复制为你自己的 `.env` 再修改。
+
+重点关注这些变量：
+
+- `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USERNAME`、`MYSQL_PASSWORD`
+- `REDIS_HOST`、`REDIS_PORT`
+- `KAFKA_BOOTSTRAP_SERVERS`
+- `NACOS_SERVER_ADDR`
+- `RABBIT_HOST`、`RABBIT_PORT`
+- `ELASTICSEARCH_URIS`
+- `JWT_SECRET`、`JWT_EXPIRE_MINUTES`
+- `COMMUNITY_USER_BASE_URL`
+- `FORUM_*_SERVICE_URL`
+- `MALL_*_SERVICE_URL`
+- `COMMUNITY_PUBLIC_DOMAIN`
+- `COMMUNITY_CORS_ALLOWED_ORIGINS`
+- `QINIU_UPLOAD_HOST`
+- `OPENAI_API_KEY`
+
+### 4. 后端推荐启动顺序
+
+论坛服务：
+
+1. `services/forum/community-user-service`
+2. `services/forum/community-message-service`
+3. `services/forum/community-social-service`
+4. `services/forum/community-media-service`
+5. `services/forum/community-data-service`
+6. `services/forum/community-post-service`
+
+商城服务：
+
+1. `services/mall/auth-service`
+2. `services/mall/product-service`
+3. `services/mall/inventory-service`
+4. `services/mall/order-service`
+5. `services/mall/cart-service`
+6. `services/mall/support-service`
+
+最后再启动：
+
+1. `apps/gateway-service`
+2. `apps/frontend`
+
+仓库中提供了辅助脚本：
+
+- `scripts/dev/print-startup-order.ps1`
+- `scripts/dev/verify-structure.py`
+
+### 5. 常用启动命令
+
+后端服务示例：
+
+```bash
+cd services/forum/community-user-service
 mvn spring-boot:run
 ```
 
+网关示例：
+
 ```bash
-cd community-message-service
+cd apps/gateway-service
 mvn spring-boot:run
 ```
 
-```bash
-cd community-social-service
-mvn spring-boot:run
-```
+前端示例：
 
 ```bash
-cd community-media-service
-mvn spring-boot:run
-```
-
-```bash
-cd community-data-service
-mvn spring-boot:run
-```
-
-```bash
-cd community-post-service
-mvn spring-boot:run
-```
-
-#### 访问入口
-
-- 服务端渲染页面：`http://localhost:8080/community`
-- Vue 开发前端：`http://localhost:5173`
-
-#### 前端启动
-
-```bash
-cd frontend
+cd apps/frontend
 npm install
 npm run dev
 ```
 
-当前 `frontend/vite.config.js` 默认把 `/api`、`/kaptcha`、`/share` 代理到 `http://localhost:8080/community`，所以论坛主站端口如果改动，前端代理也要一起改。
+### 6. 本地访问入口
 
-### 方案二：只启动商城侧
+- 前端开发入口：`http://localhost:5173`
+- 统一网关入口：`http://localhost:8080`
+- Nacos：`http://localhost:8848`
+- RabbitMQ 管理台：`http://localhost:15672`
+- Elasticsearch：`http://localhost:9200`
 
-适合做商品、订单、库存、售后联调。
+## 网关路由约定
 
-#### 前置依赖
+当前网关主要承载两组流量：
 
-- MySQL：准备 `ecommerce_auth`、`ecommerce_product`、`ecommerce_inventory`、`ecommerce_order`、`ecommerce_cart`、`ecommerce_support`
-- Redis
-- RabbitMQ
-- 可选：OpenSearch
+- `/community/**`：论坛相关页面与接口
+- `/api/**`：商城相关接口
 
-#### 一个必须注意的点
+前端路由层则统一承载：
 
-商城 `auth-service` 的注册和登录已经依赖论坛用户服务，所以如果你要完整跑商城登录链路，至少还要额外启动：
+- 论坛页面，例如 `/`、`/post/:id`、`/messages`、`/settings`
+- 商城页面，例如 `/mall`、`/mall/cart`、`/mall/orders`、`/mall/support`
 
-- `community-user-service`，默认端口 `8081`
+## SQL 与初始化说明
 
-#### 推荐启动顺序
+### 论坛侧
 
-1. `community-user-service`
-2. `inventory-service`
-3. `product-service`
-4. `order-service`
-5. `cart-service`
-6. `support-service`
-7. `auth-service`
-8. `gateway-service`
+- `sql/forum/00-study-schema.sql`：论坛 `study` 数据库基础结构
+- `sql/forum/01-quartz-tables.sql`：`community-post-service` 的 Quartz JDBC 表
 
-#### 启动命令示例
+### 商城侧
 
-```bash
-cd auth-service
-mvn spring-boot:run
-```
+- `sql/mall/00-create-databases.sql`：创建商城各服务数据库
 
-```bash
-cd product-service
-mvn spring-boot:run
-```
+商城各服务目前保留 JPA 自动建表能力，因此数据库脚本主要负责建库。
 
-```bash
-cd inventory-service
-mvn spring-boot:run
-```
+## 部署边界说明
 
-```bash
-cd order-service
-mvn spring-boot:run
-```
+### 公网入口边界
 
-```bash
-cd cart-service
-mvn spring-boot:run
-```
+浏览器只应该访问：
 
-```bash
-cd support-service
-mvn spring-boot:run
-```
+- `apps/frontend`
+- `apps/gateway-service`
 
-```bash
-cd gateway-service
-mvn spring-boot:run
-```
+不要让浏览器直接访问论坛或商城某个后端服务端口。
 
-#### 默认接口入口
+### 内部服务边界
 
-- 商城网关：`http://localhost:8080`
-- 商城认证直连：`http://localhost:18081`
-- 商品服务直连：`http://localhost:18082`
-- 库存服务直连：`http://localhost:18083`
-- 订单服务直连：`http://localhost:18084`
-- 购物车服务直连：`http://localhost:18085`
-- 客服服务直连：`http://localhost:18086`
+服务内部互调直接走内部地址，不经过网关。
 
-### 方案三：论坛和商城一起联调
+当前已经落实的边界修复包括：
 
-这才是这个仓库真正想实现的效果，但你要先处理端口冲突。
+- 商城 `auth-service` 直接调用论坛 `community-user-service`
+- 商品、订单、购物车、库存的内部依赖地址全部环境变量化
+- 网关只负责浏览器入口，不负责内部服务的二次转发
 
-#### 当前冲突
+### 数据边界
 
-- `community-post-service` 默认 `8080`
-- `gateway-service` 默认 `8080`
+- 论坛共享 `study` 数据库
+- 商城按服务拆分数据库：`ecommerce_auth`、`ecommerce_product`、`ecommerce_inventory`、`ecommerce_order`、`ecommerce_cart`、`ecommerce_support`
+- Redis、Kafka、RabbitMQ、Nacos、Elasticsearch 统一视作外部基础设施
 
-两个服务不能直接同时启动。
+### 第三方能力边界
 
-#### 推荐做法
+以下能力需要部署环境自己准备真实凭据：
 
-推荐保留论坛主站 `8080` 不动，把商城网关改成别的端口，比如 `19000`。这样改动成本最低，因为：
+- SMTP 邮件服务
+- 七牛云 Bucket 与密钥
+- `wkhtmltoimage`
+- OpenAI / 其它 LLM 服务密钥
 
-- 论坛侧多个地方默认把主站域名写成了 `http://localhost:8080`
-- Vue 前端也默认代理到 `8080/community`
+## 代码规范
 
-你只需要改商城网关配置：
+本仓库当前按照“先统一关键链路，再逐步覆盖全仓”的方式推进代码规范治理。
 
-文件：`gateway-service/src/main/resources/application.yml`
+本轮已经重点整理了以下方面：
 
-```yaml
-server:
-  port: 19000
-```
+- 统一使用构造器注入核心依赖，减少字段注入。
+- 补充控制器、网关、跨服务调用接口的类注释与方法注释。
+- 统一关键配置项命名，避免魔法值散落。
+- 把部署相关常量抽离到环境变量，减少硬编码。
+- 为仓库新增 `.editorconfig`，统一 Java、Vue、YAML、Markdown 等文件的基础缩进与编码规则。
 
-改完以后，联调入口会比较清晰：
+规范参考：
 
-- 论坛主站：`http://localhost:8080/community`
-- 商城网关：`http://localhost:19000`
-- 前端开发页：`http://localhost:5173`
+- 《阿里巴巴 Java 开发手册》
+- Spring Boot 3 / Spring Security 6 当前推荐实践
 
-## 关键配置位置
+## 兼容性说明
 
-### 论坛主站配置
+### 1. 旧论坛 Thymeleaf 页面仍保留
 
-- `community-post-service/src/main/resources/application.properties`
+目前推荐主入口是 `apps/frontend` 的统一前端应用。
 
-重点包括：
+同时，为了兼容论坛原有页面链路，论坛服务中仍保留部分 Thymeleaf 页面和静态模板。这些内容不影响统一前端的使用，但后续如果要彻底前端单页化，还可以继续收敛。
 
-- 主站端口和上下文路径
-- `study` 数据库
-- Redis
-- Kafka
-- Elasticsearch
-- Quartz
-- LLM 内容审核配置
-- 七牛云
-- wkhtmltoimage
+### 2. `legacy/community-gateway` 仅作归档
 
-### 论坛用户服务配置
+- 不参与当前编译链路
+- 不参与当前启动链路
+- 不建议作为新功能开发入口
 
-- `community-user-service/src/main/resources/application.yml`
+## 当前建议
 
-重点包括：
+如果你接下来还要继续把项目往“更像生产项目”的方向推进，优先顺序建议是：
 
-- `study` 数据库
-- Redis
-- Nacos
-- 邮件服务
-- `community.path.domain`
+1. 补充统一配置中心方案，把 `.env` 与 Nacos 配置正式接起来。
+2. 给各服务补充最基础的启动自检、健康检查和数据库迁移策略。
+3. 为前端统一补齐登录态恢复、权限页面守卫和错误页体验。
+4. 为核心链路补测试，优先覆盖用户登录、下单、购物车、帖子发布四条主流程。
 
-### 商城认证配置
+## 本轮已额外完成的边界修复
 
-- `auth-service/src/main/resources/application.yml`
+针对此前 README 中列出的“已知问题”和“部署边界”，仓库已经继续完成以下收口：
 
-重点包括：
-
-- `ecommerce_auth` 数据库
-- JWT Secret
-- 论坛用户服务地址 `community.user-service.base-url`
-
-### 商城网关配置
-
-- `gateway-service/src/main/resources/application.yml`
-
-重点包括：
-
-- 网关端口
-- 各服务路由
-- JWT 校验
-- Redis 限流
-- 熔断配置
-
-## 建议的本地联调顺序
-
-如果你想尽量少踩坑，我建议按下面这个顺序来：
-
-1. 先把 MySQL、Redis、Kafka、Nacos、RabbitMQ 起好
-2. 单独跑通 `community-user-service`
-3. 跑通论坛主站 `community-post-service`
-4. 确认前端 `frontend` 能访问论坛接口
-5. 跑通 `auth-service`
-6. 再逐步补齐 `inventory-service`、`product-service`、`order-service`、`cart-service`、`support-service`
-7. 最后处理商城网关端口，把论坛和商城同时挂起来
-
-这个顺序的好处是，用户系统这条主线最先打通，后面其它业务服务即使还没全部准备好，也不会把问题搅成一团。
-
-## 当前已知问题和部署边界
-
-这部分不写漂亮话，直接说现状。
-
-### 1. 根仓库已经聚合，但还不适合宣称“完全统一构建”
-
-论坛侧和商城侧的 Spring Boot / Java 版本还不一致。论坛侧以 Boot 2.7 为主，商城侧以 Boot 3.3 为主。它们现在已经在一个仓库中，但并不代表已经完成统一父 POM、统一插件链和统一部署脚本治理。
-
-### 2. 论坛库初始化脚本缺失
-
-商城侧多数表可以靠 JPA 自动更新，论坛侧不行。部署论坛前你需要自己准备 `study` 库表结构。
-
-### 3. 论坛网关模块还只是骨架
-
-`community-gateway` 目前只有基础工程结构，没有像商城网关那样完整的路由配置，所以论坛当前真正的访问入口还是 `community-post-service`。
-
-### 4. 配置中存在硬编码敏感信息
-
-这点本地没问题，但不适合直接进生产，更不适合继续公开扩散。
-
-### 5. 论坛和商城还没有统一成一个总网关入口
-
-现在论坛和商城分别有自己的访问方式。论坛偏传统站点入口，商城偏 API 网关入口。真正做成一个统一门户，还需要继续做路由与前端整合。
-
-## 适合拿这个项目做什么
-
-这个仓库挺适合以下几类场景：
-
-- 课程设计、毕业设计、实训项目
-- 微服务拆分和服务协同演示
-- 社区 + 商城融合方向的原型验证
-- 用户系统整合、登录体系打通的练手项目
-- 内容社区引流到交易闭环的业务探索
-
-如果只是想找一个“开箱即用、一次启动、零配置”的项目，这个仓库现在还不是那个状态。但如果你想找一个真实地处在整合过程中的项目，并继续往工程化、统一网关、统一部署和统一前端推进，它反而很有改造价值。
-
-## 后续建议
-
-如果继续往下做，我最建议优先补这几件事：
-
-1. 统一论坛和商城的端口规划，先解决 `8080` 冲突。
-2. 整理论坛 `study` 库的初始化 SQL。
-3. 把敏感配置迁移到环境变量或私有配置文件。
-4. 统一根级构建链路，减少混合版本带来的维护成本。
-5. 把论坛入口和商城入口收敛到一个统一网关或统一前端里。
-
-做到这一步，这个项目就会从“整合中的仓库”变成“可以稳定交付和演示的平台”。
+1. 论坛与商城核心服务的数据库、Redis、Kafka、Nacos、RabbitMQ、Elasticsearch 地址均已外置。
+2. 网关中的论坛与商城路由地址已改为环境变量可覆盖。
+3. 商城 `auth-service` 保持直接调用论坛用户中心，不再通过网关反调。
+4. 商城各服务共享的 JWT 密钥与过期时间已经统一外置。
+5. 七牛头像上传域名已由后端配置注入前端页面，不再写死在前端脚本中。
+6. 本地部署模板 `deploy/local/.env.example` 已补齐关键变量。
+7. 部署与架构文档已经同步更新到 `deploy/` 与 `docs/architecture/`。

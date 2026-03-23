@@ -1,0 +1,33 @@
+﻿server:
+  port: 8084
+  servlet:
+    context-path: /community
+
+spring:
+  application:
+    name: media-service
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    database: ${FORUM_REDIS_DATABASE:11}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+
+community:
+  path:
+    domain: ${COMMUNITY_PUBLIC_DOMAIN:http://localhost:8080}
+    media: ${FORUM_MEDIA_PATH:./runtime/community/upload/media}
+  media:
+    allowed-image-types: jpg,jpeg,png,gif,webp
+    allowed-video-types: mp4,webm,ogg
+    max-image-mb: 10
+    max-video-mb: 200
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+        exclude: info,caches

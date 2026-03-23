@@ -1,61 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>2.7.18</version>
-    <relativePath/>
-  </parent>
-
-  <groupId>com.nowcoder.community</groupId>
-  <artifactId>community-parent</artifactId>
+  <groupId>com.newke</groupId>
+  <artifactId>newke-aggregator</artifactId>
   <version>1.0.0</version>
   <packaging>pom</packaging>
 
   <properties>
-    <java.version>11</java.version>
-    <spring-cloud.version>2021.0.8</spring-cloud.version>
-    <spring-cloud-alibaba.version>2021.0.5.0</spring-cloud-alibaba.version>
+    <java.version>17</java.version>
+    <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
   </properties>
 
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>org.springframework.cloud</groupId>
-        <artifactId>spring-cloud-dependencies</artifactId>
-        <version>${spring-cloud.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>com.alibaba.cloud</groupId>
-        <artifactId>spring-cloud-alibaba-dependencies</artifactId>
-        <version>${spring-cloud-alibaba.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
-
   <modules>
-    <module>community-common</module>
-    <module>community-gateway</module>
-    <module>community-user-service</module>
-    <module>community-post-service</module>
-    <module>community-social-service</module>
-    <module>community-message-service</module>
-    <module>community-media-service</module>
-    <module>community-data-service</module>
-    <module>common</module>
-    <module>auth-service</module>
-    <module>product-service</module>
-    <module>inventory-service</module>
-    <module>order-service</module>
-    <module>cart-service</module>
-    <module>support-service</module>
-    <module>gateway-service</module>
+    <module>platform/forum-parent</module>
+    <module>platform/mall-parent</module>
+    <module>shared/forum/community-common</module>
+    <module>shared/mall/mall-common</module>
+    <module>services/forum/community-user-service</module>
+    <module>services/forum/community-post-service</module>
+    <module>services/forum/community-social-service</module>
+    <module>services/forum/community-message-service</module>
+    <module>services/forum/community-media-service</module>
+    <module>services/forum/community-data-service</module>
+    <module>services/mall/auth-service</module>
+    <module>services/mall/product-service</module>
+    <module>services/mall/inventory-service</module>
+    <module>services/mall/order-service</module>
+    <module>services/mall/cart-service</module>
+    <module>services/mall/support-service</module>
+    <module>apps/gateway-service</module>
   </modules>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven-enforcer-plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-java-17</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[17,)</version>
+                  <message>Newke requires JDK 17 or later.</message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

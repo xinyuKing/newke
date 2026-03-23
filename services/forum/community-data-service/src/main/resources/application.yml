@@ -1,0 +1,21 @@
+﻿server:
+  port: 8085
+
+spring:
+  application:
+    name: data-service
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    database: ${FORUM_REDIS_DATABASE:11}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+        exclude: info,caches
