@@ -45,7 +45,18 @@ logging:
   level:
     root: INFO
 
+ai:
+  fine-tune:
+    command: ${AI_FINE_TUNE_COMMAND:}
+    timeout-minutes: ${AI_FINE_TUNE_TIMEOUT_MINUTES:120}
+
+order:
+  service:
+    url: ${MALL_ORDER_SERVICE_URL:http://localhost:18084}
+
 refund:
+  order-data:
+    timeout-ms: ${REFUND_ORDER_DATA_TIMEOUT_MS:3000}
   pipeline:
     max-loop: ${REFUND_PIPELINE_MAX_LOOP:5}
     dedup-ttl-ms: ${REFUND_PIPELINE_DEDUP_TTL_MS:120000}

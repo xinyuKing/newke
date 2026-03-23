@@ -38,6 +38,6 @@ public class RefundOrderAgent implements RefundSubAgent {
         String prompt = skillOutput.getPrompt();
         var docs = ragService.retrieve(prompt, profile.getRagCollection());
         String text = modelClient.generate(profile, prompt, docs);
-        return new RefundAgentOutput(text, null, null, String.join(" | ", docs));
+        return new RefundAgentOutput(text, skillOutput.getUpdates(), skillOutput.getDecision(), String.join(" | ", docs));
     }
 }

@@ -2,6 +2,7 @@ package com.nowcoder.community.service.moderation;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +18,6 @@ import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -67,8 +67,8 @@ public class LlmModerationClient {
     }
 
     public ModerationResult review(String scene, String title, String content, String mediaJson) {
-        if (StringUtils.isBlank(apiKey)) {
-            return ModerationResult.reject(Collections.singletonList("审核服务未配置"), Collections.singletonList("system_error"));
+        if (!isAvailable()) {
+            return null;
         }
         String input = buildInput(scene, title, content, mediaJson);
         Map<String, Object> body = new LinkedHashMap<>();
@@ -86,24 +86,27 @@ public class LlmModerationClient {
         ResponseEntity<String> response;
         try {
             response = restTemplate.postForEntity(baseUrl + "/responses", entity, String.class);
-        } catch (RestClientException e) {
-            logger.warn("llm moderation request failed: {}", e.getMessage());
-            return ModerationResult.reject(Collections.singletonList("审核服务繁忙，请稍后重试"), Collections.singletonList("system_error"));
+        } catch (RestClientException ex) {
+            logger.warn("llm moderation request failed: {}", ex.getMessage());
+            return null;
         }
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-            return ModerationResult.reject(Collections.singletonList("审核服务繁忙，请稍后重试"), Collections.singletonList("system_error"));
+            logger.warn("llm moderation returned non-success status: {}", response.getStatusCode());
+            return null;
         }
+
         String outputText = extractOutputText(response.getBody());
         if (StringUtils.isBlank(outputText)) {
-            return ModerationResult.reject(Collections.singletonList("审核服务繁忙，请稍后重试"), Collections.singletonList("system_error"));
+            logger.warn("llm moderation returned empty output");
+            return null;
         }
 
         JSONObject resultJson;
         try {
             resultJson = JSONObject.parseObject(outputText);
-        } catch (Exception e) {
+        } catch (Exception ex) {
             logger.warn("invalid moderation json: {}", outputText);
-            return ModerationResult.reject(Collections.singletonList("审核服务繁忙，请稍后重试"), Collections.singletonList("system_error"));
+            return null;
         }
 
         boolean pass = resultJson.getBooleanValue("pass");
@@ -118,6 +121,10 @@ public class LlmModerationClient {
             return ModerationResult.reject(trimList(reasons), tags);
         }
         return ModerationResult.pass();
+    }
+
+    public boolean isAvailable() {
+        return StringUtils.isNotBlank(apiKey);
     }
 
     private Map<String, Object> buildTextFormat() {
@@ -137,7 +144,6 @@ public class LlmModerationClient {
         format.put("name", "moderation_result");
         format.put("strict", true);
         format.put("schema", schema);
-
         return Map.of("format", format);
     }
 
@@ -170,7 +176,7 @@ public class LlmModerationClient {
                 list.add(mapped);
             }
             return list;
-        } catch (Exception e) {
+        } catch (Exception ex) {
             return Collections.emptyList();
         }
     }
@@ -201,7 +207,7 @@ public class LlmModerationClient {
 
     private List<String> trimList(List<String> list) {
         if (list == null || list.isEmpty()) {
-            return Collections.singletonList("内容未通过审核");
+            return Collections.singletonList("Content did not pass moderation.");
         }
         if (list.size() <= maxReasons) {
             return list;
@@ -235,8 +241,8 @@ public class LlmModerationClient {
                     }
                 }
             }
-        } catch (Exception e) {
-            logger.warn("failed to parse moderation output: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.warn("failed to parse moderation output: {}", ex.getMessage());
         }
         return null;
     }
@@ -250,14 +256,15 @@ public class LlmModerationClient {
             if (StringUtils.isNotBlank(text)) {
                 return text;
             }
-        } catch (IOException e) {
-            logger.warn("failed to load moderation prompt: {}", e.getMessage());
+        } catch (IOException ex) {
+            logger.warn("failed to load moderation prompt: {}", ex.getMessage());
         }
         return defaultPrompt();
     }
 
     private String defaultPrompt() {
-        return "你是内容审核员。根据平台社区规则判断是否可发布。"
-                + "请严格输出JSON，不要输出多余文字。";
+        return "You are a community moderation reviewer. "
+                + "Judge whether the submitted content can be published under platform rules. "
+                + "Return strict JSON only and do not add any extra text.";
     }
 }

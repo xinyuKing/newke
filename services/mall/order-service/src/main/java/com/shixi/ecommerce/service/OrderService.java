@@ -14,6 +14,7 @@ import com.shixi.ecommerce.dto.CursorPageResponse;
 import com.shixi.ecommerce.dto.OrderDetailResponse;
 import com.shixi.ecommerce.dto.OrderItemResponse;
 import com.shixi.ecommerce.dto.OrderLineItem;
+import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.dto.OrderSummaryResponse;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.OrderItemRepository;
@@ -292,6 +293,29 @@ public class OrderService {
         );
         setCache(cacheKey, response, ORDER_CACHE_TTL);
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public OrderRefundSnapshotResponse getRefundSnapshot(String orderNo) {
+        if (orderNo == null || orderNo.isBlank()) {
+            throw new BusinessException("OrderNo required");
+        }
+        Order order = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException("Order not found"));
+        List<OrderItemResponse> items = orderItemRepository.findByOrderNo(orderNo).stream()
+                .map(item -> new OrderItemResponse(item.getSkuId(), item.getQuantity(), item.getPrice()))
+                .collect(Collectors.toList());
+        return new OrderRefundSnapshotResponse(
+                order.getOrderNo(),
+                order.getUserId(),
+                order.getStatus(),
+                order.getTotalAmount(),
+                order.getCarrierCode(),
+                order.getTrackingNo(),
+                order.getShippedAt(),
+                order.getCreatedAt(),
+                items
+        );
     }
 
     /**

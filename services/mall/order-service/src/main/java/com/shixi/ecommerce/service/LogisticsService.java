@@ -32,14 +32,27 @@ public class LogisticsService {
      */
     @Transactional(readOnly = true)
     public TrackingResponse query(Long userId, String orderNo) {
-        Order order = orderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new BusinessException("Order not found"));
+        Order order = requireOrder(orderNo);
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException("Forbidden");
         }
+        return query(order);
+    }
+
+    @Transactional(readOnly = true)
+    public TrackingResponse queryInternal(String orderNo) {
+        return query(requireOrder(orderNo));
+    }
+
+    private Order requireOrder(String orderNo) {
+        return orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new BusinessException("Order not found"));
+    }
+
+    private TrackingResponse query(Order order) {
         if (order.getTrackingNo() == null || order.getCarrierCode() == null) {
             throw new BusinessException("Tracking info not ready");
         }
-        return logisticsClient.query(orderNo, order.getCarrierCode(), order.getTrackingNo());
+        return logisticsClient.query(order.getOrderNo(), order.getCarrierCode(), order.getTrackingNo());
     }
 }
