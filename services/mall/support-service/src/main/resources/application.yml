@@ -46,6 +46,10 @@ logging:
     root: INFO
 
 refund:
+  pipeline:
+    max-loop: ${REFUND_PIPELINE_MAX_LOOP:5}
+    dedup-ttl-ms: ${REFUND_PIPELINE_DEDUP_TTL_MS:120000}
+    sub-agent-timeout-ms: ${REFUND_PIPELINE_SUB_AGENT_TIMEOUT_MS:4000}
   intent:
     algorithm: NAIVE_BAYES
     threshold: 0.6
@@ -63,6 +67,14 @@ refund:
         - "Risk policy: frequent refund requests require manual review."
         - "High-value orders need dual approval for instant refund."
   model:
+    client:
+      enabled: ${REFUND_MODEL_CLIENT_ENABLED:false}
+      baseUrl: ${REFUND_MODEL_BASE_URL:https://api.openai.com/v1}
+      apiKey: ${REFUND_MODEL_API_KEY:}
+      completionsPath: ${REFUND_MODEL_COMPLETIONS_PATH:/chat/completions}
+      timeoutMs: ${REFUND_MODEL_TIMEOUT_MS:8000}
+      mockFallback: ${REFUND_MODEL_MOCK_FALLBACK:true}
+      promptVersion: ${REFUND_MODEL_PROMPT_VERSION:refund-workflow-v2}
     profiles:
       REFUND_MASTER:
         base: "qwen2.5-7b"

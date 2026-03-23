@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 public class RefundContext {
+    private static final int MAX_FEEDBACK_HINTS = 8;
+
     private String sessionId;
     private String message;
     private IntentType intent;
@@ -82,7 +84,20 @@ public class RefundContext {
 
     public void addFeedbackHint(String hint) {
         if (hint != null && !hint.isBlank()) {
+            if (feedbackHints.size() >= MAX_FEEDBACK_HINTS) {
+                feedbackHints.remove(0);
+            }
             feedbackHints.add(hint);
+        }
+    }
+
+    public void replaceFeedbackHints(List<String> hints) {
+        feedbackHints.clear();
+        if (hints == null) {
+            return;
+        }
+        for (String hint : hints) {
+            addFeedbackHint(hint);
         }
     }
 }

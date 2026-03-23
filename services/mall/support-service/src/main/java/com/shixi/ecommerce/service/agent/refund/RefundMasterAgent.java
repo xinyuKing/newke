@@ -1,6 +1,9 @@
 package com.shixi.ecommerce.service.agent.refund;
 
 import com.shixi.ecommerce.domain.SessionState;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillNames;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRegistry;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -8,24 +11,26 @@ import java.util.List;
 
 @Service
 public class RefundMasterAgent {
-    private final RefundMessageParser parser;
     private final AgentProfileRegistry profileRegistry;
     private final RagService ragService;
     private final ModelClient modelClient;
+    private final RefundSkillRegistry skillRegistry;
 
-    public RefundMasterAgent(RefundMessageParser parser,
-                             AgentProfileRegistry profileRegistry,
+    public RefundMasterAgent(AgentProfileRegistry profileRegistry,
                              RagService ragService,
-                             ModelClient modelClient) {
-        this.parser = parser;
+                             ModelClient modelClient,
+                             RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;
+        this.skillRegistry = skillRegistry;
     }
 
     public RefundTaskPlan plan(RefundContext context) {
-        parser.enrich(context);
-        ensureDefaultRequestType(context);
+        skillRegistry.execute(
+                RefundSkillNames.EXTRACT_REFUND_SLOTS,
+                RefundSkillRequest.builder(context).build(),
+                RefundContext.class);
 
         List<RefundTaskType> tasks = new ArrayList<>();
         SessionState state;
@@ -53,18 +58,6 @@ public class RefundMasterAgent {
 
         context.setState(state);
         return new RefundTaskPlan(tasks, state, summary.text(), summary.meta());
-    }
-
-    private void ensureDefaultRequestType(RefundContext context) {
-        if (context.hasSlot(RefundSlots.REQUEST_TYPE)) {
-            return;
-        }
-        String reason = context.getSlot(RefundSlots.REASON);
-        if (RefundReasonType.NOT_RECEIVED.name().equals(reason)) {
-            context.putSlot(RefundSlots.REQUEST_TYPE, RefundRequestType.REFUND_ONLY.name());
-        } else if (reason != null) {
-            context.putSlot(RefundSlots.REQUEST_TYPE, RefundRequestType.RETURN_REFUND.name());
-        }
     }
 
     private boolean needsEvidence(RefundContext context) {

@@ -1,20 +1,26 @@
 package com.shixi.ecommerce.service.agent.refund;
 
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillNames;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillOutput;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRegistry;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRequest;
 import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class RefundLogisticsAgent implements RefundSubAgent {
     private final AgentProfileRegistry profileRegistry;
     private final RagService ragService;
     private final ModelClient modelClient;
+    private final RefundSkillRegistry skillRegistry;
 
-    public RefundLogisticsAgent(AgentProfileRegistry profileRegistry, RagService ragService, ModelClient modelClient) {
+    public RefundLogisticsAgent(AgentProfileRegistry profileRegistry,
+                                RagService ragService,
+                                ModelClient modelClient,
+                                RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;
+        this.skillRegistry = skillRegistry;
     }
 
     @Override
@@ -24,22 +30,14 @@ public class RefundLogisticsAgent implements RefundSubAgent {
 
     @Override
     public RefundAgentOutput handle(RefundContext context) {
-        String deliveryStatus = context.getSlot(RefundSlots.DELIVERY_STATUS);
-        String action;
-        if (RefundDeliveryStatus.NOT_RECEIVED.name().equals(deliveryStatus)) {
-            action = "Verify carrier tracking and confirm delivery address.";
-        } else if (RefundDeliveryStatus.DELIVERED.name().equals(deliveryStatus)) {
-            action = "Request return shipment tracking after pickup confirmation.";
-        } else {
-            action = "Ask whether item has been delivered.";
-        }
-        Map<String, String> updates = new HashMap<>();
-        updates.put(RefundSlots.LOGISTICS_ACTION, action);
-
+        RefundSkillOutput skillOutput = skillRegistry.execute(
+                RefundSkillNames.VERIFY_LOGISTICS,
+                RefundSkillRequest.builder(context).build(),
+                RefundSkillOutput.class);
         AgentProfile profile = profileRegistry.getProfile(getType());
-        String prompt = "Logistics action: " + action;
+        String prompt = skillOutput.getPrompt();
         var docs = ragService.retrieve(prompt, profile.getRagCollection());
         String text = modelClient.generate(profile, prompt, docs);
-        return new RefundAgentOutput(text, updates, null, String.join(" | ", docs));
+        return new RefundAgentOutput(text, skillOutput.getUpdates(), null, String.join(" | ", docs));
     }
 }

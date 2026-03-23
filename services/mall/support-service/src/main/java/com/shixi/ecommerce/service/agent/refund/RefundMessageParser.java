@@ -93,7 +93,15 @@ public class RefundMessageParser {
 
     private void extractEvidence(RefundContext context, String message) {
         String text = message.toLowerCase(Locale.ROOT);
-        if (containsAny(text, "\u7167\u7247", "\u56fe\u7247", "\u89c6\u9891", "\u51ed\u8bc1", "\u622a\u56fe", "photo", "video", "evidence")) {
+        if (containsAny(text,
+                "\u7167\u7247",
+                "\u56fe\u7247",
+                "\u89c6\u9891",
+                "\u51ed\u8bc1",
+                "\u622a\u56fe",
+                "photo",
+                "video",
+                "evidence")) {
             context.putSlot(RefundSlots.EVIDENCE, "true");
         }
     }

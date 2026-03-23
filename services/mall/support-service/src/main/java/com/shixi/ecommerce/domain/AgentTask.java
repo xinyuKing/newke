@@ -25,9 +25,14 @@ public class AgentTask {
     @Column(length = 1024)
     private String outputText;
 
+    @Column(length = 2048)
+    private String meta;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private AgentTaskStatus status;
+
+    private Long durationMs;
 
     private LocalDateTime createdAt;
 
@@ -78,6 +83,22 @@ public class AgentTask {
 
     public void setStatus(AgentTaskStatus status) {
         this.status = status;
+    }
+
+    public String getMeta() {
+        return meta;
+    }
+
+    public void setMeta(String meta) {
+        this.meta = meta;
+    }
+
+    public Long getDurationMs() {
+        return durationMs;
+    }
+
+    public void setDurationMs(Long durationMs) {
+        this.durationMs = durationMs;
     }
 
     public LocalDateTime getCreatedAt() {

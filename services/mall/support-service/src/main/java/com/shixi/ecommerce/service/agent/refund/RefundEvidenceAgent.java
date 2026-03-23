@@ -1,5 +1,9 @@
 package com.shixi.ecommerce.service.agent.refund;
 
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillNames;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillOutput;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRegistry;
+import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRequest;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -7,11 +11,16 @@ public class RefundEvidenceAgent implements RefundSubAgent {
     private final AgentProfileRegistry profileRegistry;
     private final RagService ragService;
     private final ModelClient modelClient;
+    private final RefundSkillRegistry skillRegistry;
 
-    public RefundEvidenceAgent(AgentProfileRegistry profileRegistry, RagService ragService, ModelClient modelClient) {
+    public RefundEvidenceAgent(AgentProfileRegistry profileRegistry,
+                               RagService ragService,
+                               ModelClient modelClient,
+                               RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;
+        this.skillRegistry = skillRegistry;
     }
 
     @Override
@@ -21,21 +30,12 @@ public class RefundEvidenceAgent implements RefundSubAgent {
 
     @Override
     public RefundAgentOutput handle(RefundContext context) {
-        String reason = context.getSlot(RefundSlots.REASON);
-        boolean needsEvidence = RefundReasonType.QUALITY.name().equals(reason)
-                || RefundReasonType.WRONG_ITEM.name().equals(reason)
-                || RefundReasonType.MISSING_PARTS.name().equals(reason);
-        boolean hasEvidence = context.hasSlot(RefundSlots.EVIDENCE);
+        RefundSkillOutput skillOutput = skillRegistry.execute(
+                RefundSkillNames.CHECK_EVIDENCE,
+                RefundSkillRequest.builder(context).build(),
+                RefundSkillOutput.class);
         AgentProfile profile = profileRegistry.getProfile(getType());
-
-        String prompt;
-        if (!needsEvidence) {
-            prompt = "Evidence not required for this scenario.";
-        } else if (!hasEvidence) {
-            prompt = "Request photo/video evidence for quality or wrong-item refund.";
-        } else {
-            prompt = "Evidence received. Proceed to policy review.";
-        }
+        String prompt = skillOutput.getPrompt();
         var docs = ragService.retrieve(prompt, profile.getRagCollection());
         String text = modelClient.generate(profile, prompt, docs);
         return new RefundAgentOutput(text, null, null, String.join(" | ", docs));
