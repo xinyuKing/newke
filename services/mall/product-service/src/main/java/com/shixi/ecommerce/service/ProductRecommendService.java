@@ -6,16 +6,15 @@ import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.ProductRepository;
 import com.shixi.ecommerce.repository.ProductReviewStatsRepository;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 商品推荐服务，优先使用评价统计快照。
@@ -32,9 +31,10 @@ public class ProductRecommendService {
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
 
-    public ProductRecommendService(ProductReviewStatsRepository statsRepository,
-                                   ProductRepository productRepository,
-                                   ProductMapper productMapper) {
+    public ProductRecommendService(
+            ProductReviewStatsRepository statsRepository,
+            ProductRepository productRepository,
+            ProductMapper productMapper) {
         this.statsRepository = statsRepository;
         this.productRepository = productRepository;
         this.productMapper = productMapper;
@@ -51,9 +51,9 @@ public class ProductRecommendService {
         int limit = normalizeSize(size);
         List<ProductReviewStats> stats = statsRepository.findTop20ByOrderByTotalReviewsDescAvgRatingDesc();
         if (stats.isEmpty()) {
-            return productRepository.findByStatus(
-                            ProductStatus.ACTIVE,
-                            PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt")))
+            return productRepository
+                    .findByStatus(
+                            ProductStatus.ACTIVE, PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt")))
                     .getContent()
                     .stream()
                     .map(productMapper::toResponse)

@@ -1,10 +1,9 @@
 package com.shixi.ecommerce.service.agent.refund;
 
 import com.shixi.ecommerce.domain.SessionState;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RefundContextValidator {

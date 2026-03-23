@@ -6,6 +6,14 @@ import com.nowcoder.community.service.UserService;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.CommunityUtil;
 import com.nowcoder.community.util.RedisKeyUtil;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import javax.imageio.ImageIO;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,15 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import javax.imageio.ImageIO;
-import jakarta.servlet.ServletOutputStream;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
 /**
  * 论坛登录与注册页面控制器。
  */
@@ -40,9 +39,8 @@ public class LoginController implements CommunityConstant {
     private final Producer kaptchaProducer;
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public LoginController(UserService userService,
-                           Producer kaptchaProducer,
-                           RedisTemplate<String, Object> redisTemplate) {
+    public LoginController(
+            UserService userService, Producer kaptchaProducer, RedisTemplate<String, Object> redisTemplate) {
         this.userService = userService;
         this.kaptchaProducer = kaptchaProducer;
         this.redisTemplate = redisTemplate;
@@ -71,13 +69,14 @@ public class LoginController implements CommunityConstant {
      * @return 页面跳转结果
      */
     @RequestMapping(path = "/login", method = RequestMethod.POST)
-    public String login(Model model,
-                        String username,
-                        String password,
-                        String code,
-                        @RequestParam(name = "rememberme", defaultValue = "false") boolean rememberme,
-                        HttpServletResponse response,
-                        @CookieValue(value = "kaptchaOwner", required = false) String kaptchaOwner) {
+    public String login(
+            Model model,
+            String username,
+            String password,
+            String code,
+            @RequestParam(name = "rememberme", defaultValue = "false") boolean rememberme,
+            HttpServletResponse response,
+            @CookieValue(value = "kaptchaOwner", required = false) String kaptchaOwner) {
         String kaptcha = null;
         if (StringUtils.isNotBlank(kaptchaOwner)) {
             Object cachedValue = redisTemplate.opsForValue().get(RedisKeyUtil.getKaptchaKey(kaptchaOwner));
@@ -137,9 +136,7 @@ public class LoginController implements CommunityConstant {
      * @return 页面跳转结果
      */
     @RequestMapping(path = "/activation/{userId}/{code}", method = RequestMethod.GET)
-    public String activation(Model model,
-                             @PathVariable("userId") int userId,
-                             @PathVariable("code") String code) {
+    public String activation(Model model, @PathVariable("userId") int userId, @PathVariable("code") String code) {
         int result = userService.activation(userId, code);
         if (result == ACTIVATION_SUCCESS) {
             model.addAttribute("msg", "您的账号已经激活成功，可以正常登录使用。");

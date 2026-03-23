@@ -6,14 +6,13 @@ import com.shixi.ecommerce.dto.UpdateUserRoleRequest;
 import com.shixi.ecommerce.dto.UpdateUserStatusRequest;
 import com.shixi.ecommerce.service.AdminUserService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * 商城后台用户管理接口。
@@ -46,8 +45,8 @@ public class AdminUserController {
      * @return 更新结果
      */
     @PutMapping("/{userId}/role")
-    public ApiResponse<String> updateRole(@PathVariable Long userId,
-                                          @Valid @RequestBody UpdateUserRoleRequest request) {
+    public ApiResponse<String> updateRole(
+            @PathVariable Long userId, @Valid @RequestBody UpdateUserRoleRequest request) {
         adminUserService.updateRole(userId, request.getRole());
         return ApiResponse.ok("OK");
     }
@@ -60,8 +59,8 @@ public class AdminUserController {
      * @return 更新结果
      */
     @PutMapping("/{userId}/status")
-    public ApiResponse<String> updateStatus(@PathVariable Long userId,
-                                            @Valid @RequestBody UpdateUserStatusRequest request) {
+    public ApiResponse<String> updateStatus(
+            @PathVariable Long userId, @Valid @RequestBody UpdateUserStatusRequest request) {
         adminUserService.updateStatus(userId, request.getEnabled());
         return ApiResponse.ok("OK");
     }

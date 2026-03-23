@@ -5,5 +5,4 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties(RefundModelProperties.class)
-public class RefundConfig {
-}
+public class RefundConfig {}

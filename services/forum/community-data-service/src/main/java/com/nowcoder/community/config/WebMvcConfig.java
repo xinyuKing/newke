@@ -1,4 +1,4 @@
-﻿package com.nowcoder.community.config;
+package com.nowcoder.community.config;
 
 import com.nowcoder.community.controller.interceptor.DataInterceptor;
 import org.springframework.context.annotation.Configuration;
@@ -19,8 +19,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(dataInterceptor)
-                .addPathPatterns("/**")
-                .excludePathPatterns("/error");
+        registry.addInterceptor(dataInterceptor).addPathPatterns("/**").excludePathPatterns("/error");
     }
 }

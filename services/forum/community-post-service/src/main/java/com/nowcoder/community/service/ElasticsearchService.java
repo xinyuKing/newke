@@ -46,20 +46,13 @@ public class ElasticsearchService {
      * @return 搜索结果
      */
     public Page<DiscussPost> searchDiscussPost(String keyword, int current, int limit) {
-        Sort sort = Sort.by(
-                Sort.Order.desc("type"),
-                Sort.Order.desc("score"),
-                Sort.Order.desc("createTime")
-        );
+        Sort sort = Sort.by(Sort.Order.desc("type"), Sort.Order.desc("score"), Sort.Order.desc("createTime"));
         if (keyword == null || keyword.isBlank()) {
             return Page.empty(PageRequest.of(current, limit, sort));
         }
 
         String normalizedKeyword = keyword.trim();
         return discussPostRepository.findByTitleContainingOrContentContaining(
-                normalizedKeyword,
-                normalizedKeyword,
-                PageRequest.of(current, limit, sort)
-        );
+                normalizedKeyword, normalizedKeyword, PageRequest.of(current, limit, sort));
     }
 }

@@ -13,10 +13,11 @@ public class RefundReasonAgent implements RefundSubAgent {
     private final ModelClient modelClient;
     private final RefundSkillRegistry skillRegistry;
 
-    public RefundReasonAgent(AgentProfileRegistry profileRegistry,
-                             RagService ragService,
-                             ModelClient modelClient,
-                             RefundSkillRegistry skillRegistry) {
+    public RefundReasonAgent(
+            AgentProfileRegistry profileRegistry,
+            RagService ragService,
+            ModelClient modelClient,
+            RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;

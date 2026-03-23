@@ -45,13 +45,14 @@ public class ComposeRefundReplySkill extends AbstractRefundSkill<RefundSkillOutp
         return new RefundSkillOutput(reply.toString());
     }
 
-    private void appendReviewReply(StringBuilder reply,
-                                   RefundContext context,
-                                   String orderNo,
-                                   String reason,
-                                   String requestType,
-                                   String policyResult,
-                                   String logisticsAction) {
+    private void appendReviewReply(
+            StringBuilder reply,
+            RefundContext context,
+            String orderNo,
+            String reason,
+            String requestType,
+            String policyResult,
+            String logisticsAction) {
         reply.append("order=").append(orderNo == null ? "unknown" : orderNo);
         if (reason != null) {
             reply.append(", reason=").append(reason);

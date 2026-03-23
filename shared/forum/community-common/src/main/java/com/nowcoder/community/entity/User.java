@@ -1,29 +1,43 @@
 package com.nowcoder.community.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Date;
 
 public class User {
     private int id;
     private String username;
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String salt;
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String email;
+
     private int type;
     private int status;
+
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String activationCode;
+
     private String headerUrl;
     private Date createTime;
 
-    public User() {
-    }
+    public User() {}
 
-    public User(int id, String username, String password, String salt, String email, int type, int status, String activationCode, String headerUrl, Date createTime) {
+    public User(
+            int id,
+            String username,
+            String password,
+            String salt,
+            String email,
+            int type,
+            int status,
+            String activationCode,
+            String headerUrl,
+            Date createTime) {
         this.id = id;
         this.username = username;
         this.password = password;
@@ -118,17 +132,16 @@ public class User {
 
     @Override
     public String toString() {
-        return "User{" +
-                "id=" + id +
-                ", username='" + username + '\'' +
-                ", password='" + password + '\'' +
-                ", salt='" + salt + '\'' +
-                ", email='" + email + '\'' +
-                ", type=" + type +
-                ", status=" + status +
-                ", activationCode='" + activationCode + '\'' +
-                ", headerUrl='" + headerUrl + '\'' +
-                ", createTime=" + createTime +
-                '}';
+        return "User{" + "id="
+                + id + ", username='"
+                + username + '\'' + ", password='"
+                + password + '\'' + ", salt='"
+                + salt + '\'' + ", email='"
+                + email + '\'' + ", type="
+                + type + ", status="
+                + status + ", activationCode='"
+                + activationCode + '\'' + ", headerUrl='"
+                + headerUrl + '\'' + ", createTime="
+                + createTime + '}';
     }
 }

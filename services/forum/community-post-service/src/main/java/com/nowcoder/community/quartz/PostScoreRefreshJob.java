@@ -7,6 +7,8 @@ import com.nowcoder.community.service.ElasticsearchService;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.RedisKeyUtil;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -15,9 +17,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundSetOperations;
 import org.springframework.data.redis.core.RedisTemplate;
-
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 /**
  * 刷新帖子分数并同步搜索索引的定时任务。

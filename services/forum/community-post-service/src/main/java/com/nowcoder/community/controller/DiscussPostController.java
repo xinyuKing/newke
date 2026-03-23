@@ -17,6 +17,14 @@ import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.CommunityUtil;
 import com.nowcoder.community.util.HostHolder;
 import com.nowcoder.community.util.RedisKeyUtil;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
@@ -26,15 +34,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Thymeleaf pages for legacy discuss-post flows.
@@ -56,14 +55,15 @@ public class DiscussPostController implements CommunityConstant {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ModerationService moderationService;
 
-    public DiscussPostController(DiscussPostService discussPostService,
-                                 UserClient userClient,
-                                 HostHolder hostHolder,
-                                 CommentService commentService,
-                                 LikeClient likeClient,
-                                 EventProducer eventProducer,
-                                 RedisTemplate<String, Object> redisTemplate,
-                                 ModerationService moderationService) {
+    public DiscussPostController(
+            DiscussPostService discussPostService,
+            UserClient userClient,
+            HostHolder hostHolder,
+            CommentService commentService,
+            LikeClient likeClient,
+            EventProducer eventProducer,
+            RedisTemplate<String, Object> redisTemplate,
+            ModerationService moderationService) {
         this.discussPostService = discussPostService;
         this.userClient = userClient;
         this.hostHolder = hostHolder;
@@ -153,10 +153,12 @@ public class DiscussPostController implements CommunityConstant {
             commentIds.add(comment.getId());
         }
 
-        List<Comment> replyList = emptyCommentList(commentService.findCommentsByEntityIds(ENTITY_TYPE_COMMENT, commentIds));
+        List<Comment> replyList =
+                emptyCommentList(commentService.findCommentsByEntityIds(ENTITY_TYPE_COMMENT, commentIds));
         Map<Integer, List<Comment>> replyMap = new HashMap<>();
         for (Comment reply : replyList) {
-            replyMap.computeIfAbsent(reply.getEntityId(), key -> new ArrayList<>()).add(reply);
+            replyMap.computeIfAbsent(reply.getEntityId(), key -> new ArrayList<>())
+                    .add(reply);
         }
         Map<Integer, Integer> replyCountMap = commentService.findCountByEntityIds(ENTITY_TYPE_COMMENT, commentIds);
 
@@ -176,8 +178,8 @@ public class DiscussPostController implements CommunityConstant {
 
         List<Map<String, Object>> commentVoList = new ArrayList<>();
         for (Comment comment : comments) {
-            commentVoList.add(buildCommentView(comment, replyMap, replyCountMap, userMap,
-                    commentLikeCountMap, commentLikeStatusMap));
+            commentVoList.add(buildCommentView(
+                    comment, replyMap, replyCountMap, userMap, commentLikeCountMap, commentLikeStatusMap));
         }
 
         Long postLikeCount = ApiResponseUtils.unwrap(likeClient.getEntityLikeCount(LIKE_TYPE_POST, postId));
@@ -285,27 +287,34 @@ public class DiscussPostController implements CommunityConstant {
         return userIds;
     }
 
-    private Map<String, Object> buildCommentView(Comment comment,
-                                                 Map<Integer, List<Comment>> replyMap,
-                                                 Map<Integer, Integer> replyCountMap,
-                                                 Map<Integer, User> userMap,
-                                                 Map<Integer, Long> commentLikeCountMap,
-                                                 Map<Integer, Integer> commentLikeStatusMap) {
+    private Map<String, Object> buildCommentView(
+            Comment comment,
+            Map<Integer, List<Comment>> replyMap,
+            Map<Integer, Integer> replyCountMap,
+            Map<Integer, User> userMap,
+            Map<Integer, Long> commentLikeCountMap,
+            Map<Integer, Integer> commentLikeStatusMap) {
         Map<String, Object> commentVo = new HashMap<>();
         commentVo.put("comment", comment);
         commentVo.put("user", userMap.get(comment.getUserId()));
         commentVo.put("likeCount", commentLikeCountMap.getOrDefault(comment.getId(), 0L));
         commentVo.put("likeStatus", commentLikeStatusMap.getOrDefault(comment.getId(), 0));
-        commentVo.put("replys", buildReplyViews(replyMap.getOrDefault(comment.getId(), Collections.emptyList()),
-                userMap, commentLikeCountMap, commentLikeStatusMap));
+        commentVo.put(
+                "replys",
+                buildReplyViews(
+                        replyMap.getOrDefault(comment.getId(), Collections.emptyList()),
+                        userMap,
+                        commentLikeCountMap,
+                        commentLikeStatusMap));
         commentVo.put("replyCount", replyCountMap.getOrDefault(comment.getId(), 0));
         return commentVo;
     }
 
-    private List<Map<String, Object>> buildReplyViews(List<Comment> replies,
-                                                      Map<Integer, User> userMap,
-                                                      Map<Integer, Long> commentLikeCountMap,
-                                                      Map<Integer, Integer> commentLikeStatusMap) {
+    private List<Map<String, Object>> buildReplyViews(
+            List<Comment> replies,
+            Map<Integer, User> userMap,
+            Map<Integer, Long> commentLikeCountMap,
+            Map<Integer, Integer> commentLikeStatusMap) {
         List<Map<String, Object>> replyVoList = new ArrayList<>();
         for (Comment reply : replies) {
             Map<String, Object> replyVo = new HashMap<>();
@@ -320,8 +329,7 @@ public class DiscussPostController implements CommunityConstant {
     }
 
     private boolean isManager(User user) {
-        return user != null
-                && (user.getType() == USER_TYPE_ADMIN || user.getType() == USER_TYPE_MODERATOR);
+        return user != null && (user.getType() == USER_TYPE_ADMIN || user.getType() == USER_TYPE_MODERATOR);
     }
 
     private boolean isAdmin(User user) {

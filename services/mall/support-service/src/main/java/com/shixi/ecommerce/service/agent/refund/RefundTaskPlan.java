@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.service.agent.refund;
 
 import com.shixi.ecommerce.domain.SessionState;
-
 import java.util.List;
 
 public class RefundTaskPlan {

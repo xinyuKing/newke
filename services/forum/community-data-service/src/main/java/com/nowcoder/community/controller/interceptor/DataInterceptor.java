@@ -1,14 +1,13 @@
-﻿package com.nowcoder.community.controller.interceptor;
+package com.nowcoder.community.controller.interceptor;
 
 import com.nowcoder.community.entity.User;
 import com.nowcoder.community.service.DataService;
 import com.nowcoder.community.util.HostHolder;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * UV / DAU 统计拦截器。

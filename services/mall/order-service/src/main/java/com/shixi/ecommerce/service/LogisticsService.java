@@ -32,11 +32,7 @@ public class LogisticsService {
      */
     @Transactional(readOnly = true)
     public TrackingResponse query(Long userId, String orderNo) {
-        Order order = requireOrder(orderNo);
-        if (!order.getUserId().equals(userId)) {
-            throw new BusinessException("Forbidden");
-        }
-        return query(order);
+        return query(requireUserOrder(userId, orderNo));
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +41,12 @@ public class LogisticsService {
     }
 
     private Order requireOrder(String orderNo) {
-        return orderRepository.findByOrderNo(orderNo)
+        return orderRepository.findByOrderNo(orderNo).orElseThrow(() -> new BusinessException("Order not found"));
+    }
+
+    private Order requireUserOrder(Long userId, String orderNo) {
+        return orderRepository
+                .findByOrderNoAndUserId(orderNo, userId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
     }
 

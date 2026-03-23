@@ -3,6 +3,11 @@ package com.shixi.ecommerce.service.agent.refund;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.config.RefundModelProperties;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -14,12 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 @Service
 public class ModelClient {
     private static final Logger logger = LoggerFactory.getLogger(ModelClient.class);
@@ -28,12 +27,12 @@ public class ModelClient {
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
 
-    public ModelClient(RestTemplateBuilder restTemplateBuilder,
-                       ObjectMapper objectMapper,
-                       RefundModelProperties properties) {
+    public ModelClient(
+            RestTemplateBuilder restTemplateBuilder, ObjectMapper objectMapper, RefundModelProperties properties) {
         this.properties = properties;
         this.objectMapper = objectMapper;
-        RefundModelProperties.RefundModelClientProperties client = properties.getModel().getClient();
+        RefundModelProperties.RefundModelClientProperties client =
+                properties.getModel().getClient();
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(client.getTimeoutMs()))
                 .setReadTimeout(Duration.ofMillis(client.getTimeoutMs()))
@@ -46,7 +45,8 @@ public class ModelClient {
             return "";
         }
 
-        RefundModelProperties.RefundModelClientProperties client = properties.getModel().getClient();
+        RefundModelProperties.RefundModelClientProperties client =
+                properties.getModel().getClient();
         if (!client.isEnabled() || isBlank(client.getBaseUrl()) || isBlank(client.getCompletionsPath())) {
             return buildFallbackResponse(normalizedPrompt);
         }
@@ -54,8 +54,10 @@ public class ModelClient {
         try {
             return requestCompletion(profile, normalizedPrompt, docs, client);
         } catch (RuntimeException ex) {
-            logger.warn("model client failed for agent {}: {}",
-                    profile == null ? "unknown" : profile.getAgentType(), ex.getMessage());
+            logger.warn(
+                    "model client failed for agent {}: {}",
+                    profile == null ? "unknown" : profile.getAgentType(),
+                    ex.getMessage());
             if (client.isMockFallback()) {
                 return buildFallbackResponse(normalizedPrompt);
             }
@@ -63,10 +65,11 @@ public class ModelClient {
         }
     }
 
-    private String requestCompletion(AgentProfile profile,
-                                     String prompt,
-                                     List<String> docs,
-                                     RefundModelProperties.RefundModelClientProperties client) {
+    private String requestCompletion(
+            AgentProfile profile,
+            String prompt,
+            List<String> docs,
+            RefundModelProperties.RefundModelClientProperties client) {
         String modelName = resolveModelName(profile);
         if (isBlank(modelName)) {
             return buildFallbackResponse(prompt);
@@ -74,10 +77,11 @@ public class ModelClient {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", modelName);
-        body.put("messages", List.of(
-                Map.of("role", "system", "content", buildSystemPrompt(profile, client)),
-                Map.of("role", "user", "content", buildUserPrompt(prompt, docs))
-        ));
+        body.put(
+                "messages",
+                List.of(
+                        Map.of("role", "system", "content", buildSystemPrompt(profile, client)),
+                        Map.of("role", "user", "content", buildUserPrompt(prompt, docs))));
         if (profile != null) {
             body.put("temperature", profile.getTemperature());
             body.put("max_tokens", profile.getMaxTokens());
@@ -90,8 +94,8 @@ public class ModelClient {
         }
 
         try {
-            ResponseEntity<String> response = restTemplate.postForEntity(
-                    resolveUrl(client), new HttpEntity<>(body, headers), String.class);
+            ResponseEntity<String> response =
+                    restTemplate.postForEntity(resolveUrl(client), new HttpEntity<>(body, headers), String.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new IllegalStateException("empty model response");
             }
@@ -105,8 +109,7 @@ public class ModelClient {
         }
     }
 
-    private String buildSystemPrompt(AgentProfile profile,
-                                     RefundModelProperties.RefundModelClientProperties client) {
+    private String buildSystemPrompt(AgentProfile profile, RefundModelProperties.RefundModelClientProperties client) {
         String agentType = profile == null ? "GENERAL_AGENT" : profile.getAgentType();
         return "You are the " + agentType + " node in an e-commerce after-sale workflow. "
                 + "Prompt version: " + client.getPromptVersion() + ". "
@@ -131,7 +134,8 @@ public class ModelClient {
     private String extractContent(String body) {
         try {
             JsonNode root = objectMapper.readTree(body);
-            JsonNode messageContent = root.path("choices").path(0).path("message").path("content");
+            JsonNode messageContent =
+                    root.path("choices").path(0).path("message").path("content");
             if (messageContent.isTextual()) {
                 return messageContent.asText();
             }

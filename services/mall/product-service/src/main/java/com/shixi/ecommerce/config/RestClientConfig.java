@@ -1,5 +1,6 @@
 package com.shixi.ecommerce.config;
 
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
@@ -18,11 +19,12 @@ public class RestClientConfig {
         PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
         cm.setMaxTotal(200);
         cm.setDefaultMaxPerRoute(50);
-
-        RequestConfig config = RequestConfig.custom()
+        cm.setDefaultConnectionConfig(ConnectionConfig.custom()
                 .setConnectTimeout(Timeout.ofSeconds(2))
-                .setResponseTimeout(Timeout.ofSeconds(4))
-                .build();
+                .build());
+
+        RequestConfig config =
+                RequestConfig.custom().setResponseTimeout(Timeout.ofSeconds(4)).build();
 
         CloseableHttpClient client = HttpClients.custom()
                 .setConnectionManager(cm)

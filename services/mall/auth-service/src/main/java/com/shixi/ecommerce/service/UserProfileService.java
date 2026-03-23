@@ -31,8 +31,7 @@ public class UserProfileService {
      */
     @Transactional(readOnly = true)
     public UserProfileResponse getProfile(Long userId) {
-        UserAccount account = repository.findById(userId)
-                .orElseThrow(() -> new BusinessException("User not found"));
+        UserAccount account = repository.findById(userId).orElseThrow(() -> new BusinessException("User not found"));
         return toResponse(account);
     }
 
@@ -45,8 +44,7 @@ public class UserProfileService {
      */
     @Transactional
     public UserProfileResponse updateProfile(Long userId, UpdateUserProfileRequest request) {
-        UserAccount account = repository.findById(userId)
-                .orElseThrow(() -> new BusinessException("User not found"));
+        UserAccount account = repository.findById(userId).orElseThrow(() -> new BusinessException("User not found"));
         if (request.getNickname() != null) {
             account.setNickname(normalize(request.getNickname()));
         }
@@ -78,7 +76,6 @@ public class UserProfileService {
                 account.getAvatarUrl(),
                 account.getEmail(),
                 account.getPhone(),
-                account.getCreatedAt()
-        );
+                account.getCreatedAt());
     }
 }

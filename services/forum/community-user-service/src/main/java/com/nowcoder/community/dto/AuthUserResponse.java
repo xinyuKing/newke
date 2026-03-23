@@ -8,8 +8,7 @@ public class AuthUserResponse {
     private String email;
     private String headerUrl;
 
-    public AuthUserResponse() {
-    }
+    public AuthUserResponse() {}
 
     public AuthUserResponse(int id, String username, int type, int status, String email, String headerUrl) {
         this.id = id;

@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.service.agent.refund.skill;
 
 import com.shixi.ecommerce.service.agent.refund.RefundDecision;
-
 import java.util.Collections;
 import java.util.Map;
 

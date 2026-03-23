@@ -3,12 +3,11 @@ package com.shixi.ecommerce.service;
 import com.shixi.ecommerce.domain.ProductReviewStats;
 import com.shixi.ecommerce.repository.ProductReviewStatsRepository;
 import com.shixi.ecommerce.repository.ReviewRepository;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
  * 评价统计聚合服务，异步刷新商品评价统计快照。
@@ -23,8 +22,7 @@ public class ReviewStatsService {
     private final ReviewRepository reviewRepository;
     private final ProductReviewStatsRepository statsRepository;
 
-    public ReviewStatsService(ReviewRepository reviewRepository,
-                              ProductReviewStatsRepository statsRepository) {
+    public ReviewStatsService(ReviewRepository reviewRepository, ProductReviewStatsRepository statsRepository) {
         this.reviewRepository = reviewRepository;
         this.statsRepository = statsRepository;
     }

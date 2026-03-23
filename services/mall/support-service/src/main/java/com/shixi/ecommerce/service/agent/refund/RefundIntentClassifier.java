@@ -7,13 +7,12 @@ import com.shixi.ecommerce.domain.RefundIntentModelState;
 import com.shixi.ecommerce.dto.RefundIntentSample;
 import com.shixi.ecommerce.repository.RefundIntentModelStateRepository;
 import jakarta.annotation.PostConstruct;
-import org.springframework.stereotype.Component;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RefundIntentClassifier {
@@ -27,10 +26,11 @@ public class RefundIntentClassifier {
     private double threshold = 0.60;
     private boolean trained;
 
-    public RefundIntentClassifier(RefundTokenizer tokenizer,
-                                  RefundIntentModelStateRepository repository,
-                                  ObjectMapper objectMapper,
-                                  RefundModelProperties properties) {
+    public RefundIntentClassifier(
+            RefundTokenizer tokenizer,
+            RefundIntentModelStateRepository repository,
+            ObjectMapper objectMapper,
+            RefundModelProperties properties) {
         this.tokenizer = tokenizer;
         this.repository = repository;
         this.objectMapper = objectMapper;

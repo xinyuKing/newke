@@ -7,12 +7,11 @@ import com.shixi.ecommerce.dto.AgentChatResponse;
 import com.shixi.ecommerce.dto.AgentResult;
 import com.shixi.ecommerce.service.agent.refund.RefundAgentPipeline;
 import com.shixi.ecommerce.service.agent.refund.RefundPipelineResult;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class AgentOrchestrator {
@@ -23,10 +22,11 @@ public class AgentOrchestrator {
     private final RefundAgentPipeline refundAgentPipeline;
     private final Map<String, Agent> agentsByType = new HashMap<>();
 
-    public AgentOrchestrator(IntentRecognizer intentRecognizer,
-                             AgentSessionService sessionService,
-                             RefundAgentPipeline refundAgentPipeline,
-                             List<Agent> agents) {
+    public AgentOrchestrator(
+            IntentRecognizer intentRecognizer,
+            AgentSessionService sessionService,
+            RefundAgentPipeline refundAgentPipeline,
+            List<Agent> agents) {
         this.intentRecognizer = intentRecognizer;
         this.sessionService = sessionService;
         this.refundAgentPipeline = refundAgentPipeline;
@@ -37,7 +37,8 @@ public class AgentOrchestrator {
 
     public AgentChatResponse chat(AgentChatRequest request) {
         IntentType intent = intentRecognizer.recognize(request.getMessage());
-        String sessionId = sessionService.getOrCreate(request.getSessionId(), intent).getSessionId();
+        String sessionId =
+                sessionService.getOrCreate(request.getSessionId(), intent).getSessionId();
 
         if (intent == IntentType.REFUND) {
             return handleRefund(sessionId, intent, request.getMessage());
@@ -49,7 +50,8 @@ public class AgentOrchestrator {
         }
 
         sessionService.updateState(sessionId, SessionState.HANDOFF, intent);
-        String reply = "Current automation supports refund, logistics, and basic consulting requests. Transfer to human support.";
+        String reply =
+                "Current automation supports refund, logistics, and basic consulting requests. Transfer to human support.";
         AgentResult routerResult = new AgentResult("ROUTER", "handoff", "intent=" + intent.name());
         return new AgentChatResponse(sessionId, SessionState.HANDOFF, intent, reply, List.of(routerResult));
     }
@@ -58,7 +60,8 @@ public class AgentOrchestrator {
         try {
             RefundPipelineResult result = refundAgentPipeline.handle(sessionId, message);
             sessionService.updateState(sessionId, result.getState(), intent);
-            return new AgentChatResponse(sessionId, result.getState(), intent, result.getReply(), result.getAgentResults());
+            return new AgentChatResponse(
+                    sessionId, result.getState(), intent, result.getReply(), result.getAgentResults());
         } catch (RuntimeException ex) {
             Agent fallbackAgent = agentsByType.get(REFUND_REVIEW);
             List<AgentResult> results = new ArrayList<>();
@@ -68,14 +71,10 @@ public class AgentOrchestrator {
                     reply = fallbackAgent.handle(sessionId, message)
                             + " If the case is still unclear, human support will continue the review.";
                     results.add(new AgentResult(
-                            fallbackAgent.getType(),
-                            reply,
-                            "fallback=true,error=" + safeErrorMessage(ex)));
+                            fallbackAgent.getType(), reply, "fallback=true,error=" + safeErrorMessage(ex)));
                 } catch (RuntimeException fallbackEx) {
                     results.add(new AgentResult(
-                            fallbackAgent.getType(),
-                            "handoff",
-                            "fallback=true,error=" + safeErrorMessage(fallbackEx)));
+                            fallbackAgent.getType(), "handoff", "fallback=true,error=" + safeErrorMessage(fallbackEx)));
                 }
             }
             sessionService.updateState(sessionId, SessionState.HANDOFF, intent);
@@ -83,10 +82,7 @@ public class AgentOrchestrator {
         }
     }
 
-    private AgentChatResponse handleDirectAgent(String sessionId,
-                                                IntentType intent,
-                                                Agent agent,
-                                                String message) {
+    private AgentChatResponse handleDirectAgent(String sessionId, IntentType intent, Agent agent, String message) {
         try {
             String reply = agent.handle(sessionId, message);
             sessionService.updateState(sessionId, SessionState.DONE, intent);
@@ -95,10 +91,8 @@ public class AgentOrchestrator {
         } catch (RuntimeException ex) {
             sessionService.updateState(sessionId, SessionState.HANDOFF, intent);
             String reply = "Automatic handling failed for this request. Transfer to human support.";
-            AgentResult result = new AgentResult(
-                    agent.getType(),
-                    "handoff",
-                    "route=direct-failed,error=" + safeErrorMessage(ex));
+            AgentResult result =
+                    new AgentResult(agent.getType(), "handoff", "route=direct-failed,error=" + safeErrorMessage(ex));
             return new AgentChatResponse(sessionId, SessionState.HANDOFF, intent, reply, List.of(result));
         }
     }

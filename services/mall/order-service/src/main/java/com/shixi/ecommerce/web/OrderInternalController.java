@@ -40,11 +40,7 @@ public class OrderInternalController {
     @PostMapping
     public CreateOrderResponse create(@Valid @RequestBody CreateOrderItemsRequest request) {
         return orderService.createOrderByItems(
-                request.getUserId(),
-                request.getIdempotencyKey(),
-                "order:cart",
-                request.getItems()
-        );
+                request.getUserId(), request.getIdempotencyKey(), "order:cart", request.getItems());
     }
 
     @GetMapping("/{orderNo}/refund-snapshot")

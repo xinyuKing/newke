@@ -1,13 +1,12 @@
-﻿package com.nowcoder.community.controller;
+package com.nowcoder.community.controller;
 
 import com.nowcoder.community.service.DataService;
+import java.util.Date;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import java.util.Date;
 
 /**
  * 后台统计页面控制器。
@@ -41,9 +40,10 @@ public class DataController {
      * @return 转发到统计页面
      */
     @PostMapping("/uv")
-    public String getUV(@DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
-                        @DateTimeFormat(pattern = "yyyy-MM-dd") Date end,
-                        Model model) {
+    public String getUV(
+            @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
+            @DateTimeFormat(pattern = "yyyy-MM-dd") Date end,
+            Model model) {
         long uv = dataService.calculateUV(start, end);
         model.addAttribute("uvResult", uv);
         model.addAttribute("uvStartDate", start);
@@ -60,9 +60,10 @@ public class DataController {
      * @return 转发到统计页面
      */
     @PostMapping("/dau")
-    public String getDAU(@DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
-                         @DateTimeFormat(pattern = "yyyy-MM-dd") Date end,
-                         Model model) {
+    public String getDAU(
+            @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
+            @DateTimeFormat(pattern = "yyyy-MM-dd") Date end,
+            Model model) {
         long dau = dataService.calculateDAU(start, end);
         model.addAttribute("dauResult", dau);
         model.addAttribute("dauStartDate", start);

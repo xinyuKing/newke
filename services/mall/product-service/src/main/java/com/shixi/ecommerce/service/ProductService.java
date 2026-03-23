@@ -9,16 +9,6 @@ import com.shixi.ecommerce.dto.CursorPageResponse;
 import com.shixi.ecommerce.dto.ProductCreateRequest;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.ProductRepository;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -28,6 +18,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 商品领域服务，包含商品创建、查询与缓存策略。
@@ -50,12 +49,13 @@ public class ProductService {
     private final ProductMapper productMapper;
     private final ProductIndexPublisher productIndexPublisher;
 
-    public ProductService(ProductRepository productRepository,
-                          InventoryClient inventoryClient,
-                          StringRedisTemplate redisTemplate,
-                          ObjectMapper objectMapper,
-                          ProductMapper productMapper,
-                          ProductIndexPublisher productIndexPublisher) {
+    public ProductService(
+            ProductRepository productRepository,
+            InventoryClient inventoryClient,
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper,
+            ProductMapper productMapper,
+            ProductIndexPublisher productIndexPublisher) {
         this.productRepository = productRepository;
         this.inventoryClient = inventoryClient;
         this.redisTemplate = redisTemplate;
@@ -74,14 +74,11 @@ public class ProductService {
     @Transactional
     @Caching(
             evict = {
-                    @CacheEvict(cacheNames = "activeProducts", allEntries = true),
-                    @CacheEvict(cacheNames = "merchantProducts", allEntries = true),
-                    @CacheEvict(cacheNames = "merchantAnalysis", key = "#merchantId")
+                @CacheEvict(cacheNames = "activeProducts", allEntries = true),
+                @CacheEvict(cacheNames = "merchantProducts", allEntries = true),
+                @CacheEvict(cacheNames = "merchantAnalysis", key = "#merchantId")
             },
-            put = {
-                    @CachePut(cacheNames = "productById", key = "#result.id")
-            }
-    )
+            put = {@CachePut(cacheNames = "productById", key = "#result.id")})
     public ProductResponse createProduct(Long merchantId, ProductCreateRequest request) {
         Product product = new Product();
         product.setMerchantId(merchantId);
@@ -101,14 +98,15 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<ProductResponse> listActiveProducts(Integer page, Integer size) {
         if (page == null && size == null) {
-            return productRepository.findByStatus(ProductStatus.ACTIVE)
-                    .stream().map(productMapper::toResponse).collect(Collectors.toList());
+            return productRepository.findByStatus(ProductStatus.ACTIVE).stream()
+                    .map(productMapper::toResponse)
+                    .collect(Collectors.toList());
         }
         int pageNo = normalizePage(page);
         int pageSize = normalizeSize(size);
-        return productRepository.findByStatus(
-                        ProductStatus.ACTIVE,
-                        PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.DESC, "id")))
+        return productRepository
+                .findByStatus(
+                        ProductStatus.ACTIVE, PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.DESC, "id")))
                 .getContent()
                 .stream()
                 .map(productMapper::toResponse)
@@ -119,16 +117,17 @@ public class ProductService {
      * 游标分页查询上架商品。
      */
     @Transactional(readOnly = true)
-    public CursorPageResponse<ProductResponse> listActiveProductsCursor(LocalDateTime cursorTime,
-                                                                        Long cursorId,
-                                                                        Integer size) {
+    public CursorPageResponse<ProductResponse> listActiveProductsCursor(
+            LocalDateTime cursorTime, Long cursorId, Integer size) {
         int pageSize = normalizeSize(size);
         List<Product> products = productRepository.findByStatusCursor(
                 ProductStatus.ACTIVE,
                 cursorTime,
                 cursorId,
-                PageRequest.of(0, pageSize + 1, Sort.by(Sort.Direction.DESC, "createdAt")
-                        .and(Sort.by(Sort.Direction.DESC, "id"))));
+                PageRequest.of(
+                        0,
+                        pageSize + 1,
+                        Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))));
         boolean hasNext = products.size() > pageSize;
         if (hasNext) {
             products = products.subList(0, pageSize);
@@ -140,7 +139,8 @@ public class ProductService {
             nextTime = last.getCreatedAt();
             nextId = last.getId();
         }
-        List<ProductResponse> items = products.stream().map(productMapper::toResponse).collect(Collectors.toList());
+        List<ProductResponse> items =
+                products.stream().map(productMapper::toResponse).collect(Collectors.toList());
         return new CursorPageResponse<>(items, hasNext, nextTime, nextId);
     }
 
@@ -148,14 +148,14 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<ProductResponse> listByMerchant(Long merchantId, Integer page, Integer size) {
         if (page == null && size == null) {
-            return productRepository.findByMerchantId(merchantId)
-                    .stream().map(productMapper::toResponse).collect(Collectors.toList());
+            return productRepository.findByMerchantId(merchantId).stream()
+                    .map(productMapper::toResponse)
+                    .collect(Collectors.toList());
         }
         int pageNo = normalizePage(page);
         int pageSize = normalizeSize(size);
-        return productRepository.findByMerchantId(
-                        merchantId,
-                        PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.DESC, "id")))
+        return productRepository
+                .findByMerchantId(merchantId, PageRequest.of(pageNo, pageSize, Sort.by(Sort.Direction.DESC, "id")))
                 .getContent()
                 .stream()
                 .map(productMapper::toResponse)
@@ -166,17 +166,17 @@ public class ProductService {
      * 游标分页查询商家商品。
      */
     @Transactional(readOnly = true)
-    public CursorPageResponse<ProductResponse> listByMerchantCursor(Long merchantId,
-                                                                    LocalDateTime cursorTime,
-                                                                    Long cursorId,
-                                                                    Integer size) {
+    public CursorPageResponse<ProductResponse> listByMerchantCursor(
+            Long merchantId, LocalDateTime cursorTime, Long cursorId, Integer size) {
         int pageSize = normalizeSize(size);
         List<Product> products = productRepository.findByMerchantCursor(
                 merchantId,
                 cursorTime,
                 cursorId,
-                PageRequest.of(0, pageSize + 1, Sort.by(Sort.Direction.DESC, "createdAt")
-                        .and(Sort.by(Sort.Direction.DESC, "id"))));
+                PageRequest.of(
+                        0,
+                        pageSize + 1,
+                        Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))));
         boolean hasNext = products.size() > pageSize;
         if (hasNext) {
             products = products.subList(0, pageSize);
@@ -188,13 +188,15 @@ public class ProductService {
             nextTime = last.getCreatedAt();
             nextId = last.getId();
         }
-        List<ProductResponse> items = products.stream().map(productMapper::toResponse).collect(Collectors.toList());
+        List<ProductResponse> items =
+                products.stream().map(productMapper::toResponse).collect(Collectors.toList());
         return new CursorPageResponse<>(items, hasNext, nextTime, nextId);
     }
 
     @Transactional(readOnly = true)
     public Product getProductOrThrow(Long skuId) {
-        return productRepository.findById(skuId)
+        return productRepository
+                .findById(skuId)
                 .orElseThrow(() -> new BusinessException("Product not found: " + skuId));
     }
 

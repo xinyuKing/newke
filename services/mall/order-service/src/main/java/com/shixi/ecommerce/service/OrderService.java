@@ -21,12 +21,6 @@ import com.shixi.ecommerce.repository.OrderItemRepository;
 import com.shixi.ecommerce.repository.OrderRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -37,6 +31,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 订单核心业务服务，负责下单、支付、发货、收货与库存扣减/释放。
@@ -71,15 +70,16 @@ public class OrderService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public OrderService(OrderRepository orderRepository,
-                        OrderItemRepository orderItemRepository,
-                        InventoryClient inventoryClient,
-                        IdempotencyService idempotencyService,
-                        OrderEventPublisher eventPublisher,
-                        ProductClient productClient,
-                        StringRedisTemplate redisTemplate,
-                        ObjectMapper objectMapper,
-                        OrderStateMachine orderStateMachine) {
+    public OrderService(
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            InventoryClient inventoryClient,
+            IdempotencyService idempotencyService,
+            OrderEventPublisher eventPublisher,
+            ProductClient productClient,
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper,
+            OrderStateMachine orderStateMachine) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.inventoryClient = inventoryClient;
@@ -113,7 +113,8 @@ public class OrderService {
      * @return 下单结果
      */
     @Transactional
-    public CreateOrderResponse createOrderByItems(Long userId, String idempotencyKey, String bizPrefix, List<OrderLineItem> items) {
+    public CreateOrderResponse createOrderByItems(
+            Long userId, String idempotencyKey, String bizPrefix, List<OrderLineItem> items) {
         if (userId == null) {
             throw new BusinessException("UserId required");
         }
@@ -174,14 +175,15 @@ public class OrderService {
      * @param role    操作角色
      */
     @Transactional
-    public void payOrder(String orderNo, String role) {
-        orderStateMachine.assertTransition(OrderStatus.CREATED, OrderStatus.PAID, role);
-        int updated = orderRepository.updateStatusIfMatch(orderNo, OrderStatus.CREATED, OrderStatus.PAID);
+    public void payOrder(Long userId, String orderNo) {
+        orderStateMachine.assertTransition(OrderStatus.CREATED, OrderStatus.PAID, "USER");
+        int updated =
+                orderRepository.updateStatusIfMatchAndUser(orderNo, userId, OrderStatus.CREATED, OrderStatus.PAID);
         if (updated == 0) {
             throw new BusinessException("Order not payable or not found: " + orderNo);
         }
         bumpOrderVersion(orderNo);
-        bumpOrderListVersionByOrderNo(orderNo);
+        bumpOrderListVersion(userId);
         eventPublisher.publishOrderPaid(orderNo);
     }
 
@@ -202,8 +204,8 @@ public class OrderService {
             throw new BusinessException("Tracking number required");
         }
         orderStateMachine.assertTransition(OrderStatus.PAID, OrderStatus.SHIPPED, role);
-        int updated = orderRepository.updateShipInfo(orderNo, OrderStatus.PAID, OrderStatus.SHIPPED,
-                carrierCode.trim(), trackingNo.trim());
+        int updated = orderRepository.updateShipInfo(
+                orderNo, OrderStatus.PAID, OrderStatus.SHIPPED, carrierCode.trim(), trackingNo.trim());
         if (updated == 0) {
             throw new BusinessException("Order not shippable or not found: " + orderNo);
         }
@@ -244,9 +246,10 @@ public class OrderService {
      * @param role    操作角色
      */
     @Transactional
-    public void confirmReceipt(Long userId, String orderNo, String role) {
-        orderStateMachine.assertTransition(OrderStatus.SHIPPED, OrderStatus.COMPLETED, role);
-        int updated = orderRepository.updateStatusIfMatchAndUser(orderNo, userId, OrderStatus.SHIPPED, OrderStatus.COMPLETED);
+    public void confirmReceipt(Long userId, String orderNo) {
+        orderStateMachine.assertTransition(OrderStatus.SHIPPED, OrderStatus.COMPLETED, "USER");
+        int updated =
+                orderRepository.updateStatusIfMatchAndUser(orderNo, userId, OrderStatus.SHIPPED, OrderStatus.COMPLETED);
         if (updated == 0) {
             throw new BusinessException("Order not shippable or not found: " + orderNo);
         }
@@ -268,16 +271,14 @@ public class OrderService {
             throw new BusinessException("OrderNo required");
         }
         String version = getVersion(orderVersionKey(orderNo));
-        String cacheKey = ORDER_CACHE_PREFIX + orderNo + ":v" + version;
+        String cacheKey = ORDER_CACHE_PREFIX + userId + ":" + orderNo + ":v" + version;
         OrderDetailResponse cached = getCache(cacheKey, new TypeReference<OrderDetailResponse>() {});
         if (cached != null) {
             return cached;
         }
-        Order order = orderRepository.findByOrderNo(orderNo)
+        Order order = orderRepository
+                .findByOrderNoAndUserId(orderNo, userId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
-        if (!order.getUserId().equals(userId)) {
-            throw new BusinessException("Forbidden");
-        }
         List<OrderItemResponse> items = orderItemRepository.findByOrderNo(orderNo).stream()
                 .map(item -> new OrderItemResponse(item.getSkuId(), item.getQuantity(), item.getPrice()))
                 .collect(Collectors.toList());
@@ -289,8 +290,7 @@ public class OrderService {
                 order.getTrackingNo(),
                 order.getShippedAt(),
                 order.getCreatedAt(),
-                items
-        );
+                items);
         setCache(cacheKey, response, ORDER_CACHE_TTL);
         return response;
     }
@@ -300,8 +300,8 @@ public class OrderService {
         if (orderNo == null || orderNo.isBlank()) {
             throw new BusinessException("OrderNo required");
         }
-        Order order = orderRepository.findByOrderNo(orderNo)
-                .orElseThrow(() -> new BusinessException("Order not found"));
+        Order order =
+                orderRepository.findByOrderNo(orderNo).orElseThrow(() -> new BusinessException("Order not found"));
         List<OrderItemResponse> items = orderItemRepository.findByOrderNo(orderNo).stream()
                 .map(item -> new OrderItemResponse(item.getSkuId(), item.getQuantity(), item.getPrice()))
                 .collect(Collectors.toList());
@@ -314,8 +314,7 @@ public class OrderService {
                 order.getTrackingNo(),
                 order.getShippedAt(),
                 order.getCreatedAt(),
-                items
-        );
+                items);
     }
 
     /**
@@ -328,17 +327,16 @@ public class OrderService {
      * @return 游标分页结果
      */
     @Transactional(readOnly = true)
-    public CursorPageResponse<OrderSummaryResponse> listOrdersCursor(Long userId,
-                                                                     LocalDateTime cursorTime,
-                                                                     Long cursorId,
-                                                                     Integer size) {
+    public CursorPageResponse<OrderSummaryResponse> listOrdersCursor(
+            Long userId, LocalDateTime cursorTime, Long cursorId, Integer size) {
         int pageSize = normalizeSize(size);
         String version = getVersion(orderListVersionKey(userId));
         String cursorTimeKey = cursorTime == null ? "none" : cursorTime.toString();
         String cursorIdKey = cursorId == null ? "none" : String.valueOf(cursorId);
-        String cacheKey = ORDER_LIST_CACHE_PREFIX + userId + ":v" + version + ":" + cursorTimeKey + ":" + cursorIdKey + ":" + pageSize;
-        CursorPageResponse<OrderSummaryResponse> cached = getCache(cacheKey,
-                new TypeReference<CursorPageResponse<OrderSummaryResponse>>() {});
+        String cacheKey = ORDER_LIST_CACHE_PREFIX + userId + ":v" + version + ":" + cursorTimeKey + ":" + cursorIdKey
+                + ":" + pageSize;
+        CursorPageResponse<OrderSummaryResponse> cached =
+                getCache(cacheKey, new TypeReference<CursorPageResponse<OrderSummaryResponse>>() {});
         if (cached != null) {
             return cached;
         }
@@ -346,8 +344,10 @@ public class OrderService {
                 userId,
                 cursorTime,
                 cursorId,
-                PageRequest.of(0, pageSize + 1, Sort.by(Sort.Direction.DESC, "createdAt")
-                        .and(Sort.by(Sort.Direction.DESC, "id"))));
+                PageRequest.of(
+                        0,
+                        pageSize + 1,
+                        Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))));
         boolean hasNext = orders.size() > pageSize;
         if (hasNext) {
             orders = orders.subList(0, pageSize);
@@ -361,10 +361,7 @@ public class OrderService {
         }
         List<OrderSummaryResponse> items = orders.stream()
                 .map(order -> new OrderSummaryResponse(
-                        order.getOrderNo(),
-                        order.getStatus(),
-                        order.getTotalAmount(),
-                        order.getCreatedAt()))
+                        order.getOrderNo(), order.getStatus(), order.getTotalAmount(), order.getCreatedAt()))
                 .collect(Collectors.toList());
         CursorPageResponse<OrderSummaryResponse> response = new CursorPageResponse<>(items, hasNext, nextTime, nextId);
         setCache(cacheKey, response, ORDER_LIST_CACHE_TTL);

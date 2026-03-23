@@ -1,21 +1,20 @@
 package com.shixi.ecommerce.service.agent.refund.skill;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.shixi.ecommerce.domain.OrderStatus;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.service.agent.refund.RefundContext;
 import com.shixi.ecommerce.service.agent.refund.RefundSlots;
 import com.shixi.ecommerce.service.agent.refund.data.RefundOrderDataClient;
-import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
 
 class ConfirmRefundOrderSkillTest {
     @Test
@@ -23,7 +22,8 @@ class ConfirmRefundOrderSkillTest {
         ConfirmRefundOrderSkill skill = new ConfirmRefundOrderSkill(mock(RefundOrderDataClient.class));
         RefundContext context = new RefundContext();
 
-        RefundSkillOutput output = skill.execute(RefundSkillRequest.builder(context).build());
+        RefundSkillOutput output =
+                skill.execute(RefundSkillRequest.builder(context).build());
 
         assertTrue(output.getPrompt().contains("provide order number"));
         assertTrue(output.getUpdates().isEmpty());
@@ -44,11 +44,11 @@ class ConfirmRefundOrderSkillTest {
                 "SF123456",
                 null,
                 LocalDateTime.of(2026, 3, 23, 9, 30),
-                List.of()
-        );
+                List.of());
         when(client.getRefundSnapshot("O20260323001")).thenReturn(Optional.of(snapshot));
 
-        RefundSkillOutput output = skill.execute(RefundSkillRequest.builder(context).build());
+        RefundSkillOutput output =
+                skill.execute(RefundSkillRequest.builder(context).build());
 
         assertTrue(output.getPrompt().contains("Order verified"));
         assertEquals("101", output.getUpdates().get(RefundSlots.USER_ID));

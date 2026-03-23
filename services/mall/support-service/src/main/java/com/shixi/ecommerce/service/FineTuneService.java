@@ -6,20 +6,19 @@ import com.shixi.ecommerce.domain.FineTuneStatus;
 import com.shixi.ecommerce.dto.FineTuneRequest;
 import com.shixi.ecommerce.dto.FineTuneResponse;
 import com.shixi.ecommerce.repository.FineTuneJobRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 @Service
 public class FineTuneService {
@@ -31,10 +30,11 @@ public class FineTuneService {
     private final String commandTemplate;
     private final long timeoutMinutes;
 
-    public FineTuneService(FineTuneJobRepository repository,
-                           @Qualifier("bizExecutor") Executor executor,
-                           @Value("${ai.fine-tune.command:}") String commandTemplate,
-                           @Value("${ai.fine-tune.timeout-minutes:120}") long timeoutMinutes) {
+    public FineTuneService(
+            FineTuneJobRepository repository,
+            @Qualifier("bizExecutor") Executor executor,
+            @Value("${ai.fine-tune.command:}") String commandTemplate,
+            @Value("${ai.fine-tune.timeout-minutes:120}") long timeoutMinutes) {
         this.repository = repository;
         this.executor = executor;
         this.commandTemplate = commandTemplate;
@@ -83,8 +83,7 @@ public class FineTuneService {
             boolean finished = process.waitFor(timeoutMinutes, TimeUnit.MINUTES);
             if (!finished) {
                 process.destroyForcibly();
-                throw new IllegalStateException(
-                        "Fine-tune process timed out after " + timeoutMinutes + " minute(s).");
+                throw new IllegalStateException("Fine-tune process timed out after " + timeoutMinutes + " minute(s).");
             }
             if (process.exitValue() != 0) {
                 String output = Files.readString(logFile, StandardCharsets.UTF_8);

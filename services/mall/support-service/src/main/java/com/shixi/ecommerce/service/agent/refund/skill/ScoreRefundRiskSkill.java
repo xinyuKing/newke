@@ -8,14 +8,13 @@ import com.shixi.ecommerce.service.agent.refund.RefundSlots;
 import com.shixi.ecommerce.service.agent.refund.data.RefundOrderDataClient;
 import com.shixi.ecommerce.service.agent.refund.data.RefundRiskDataService;
 import com.shixi.ecommerce.service.agent.refund.data.RefundRiskProfile;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class ScoreRefundRiskSkill extends AbstractRefundSkill<RefundSkillOutput> {
@@ -25,8 +24,7 @@ public class ScoreRefundRiskSkill extends AbstractRefundSkill<RefundSkillOutput>
     private final RefundOrderDataClient orderDataClient;
     private final RefundRiskDataService refundRiskDataService;
 
-    public ScoreRefundRiskSkill(RefundOrderDataClient orderDataClient,
-                                RefundRiskDataService refundRiskDataService) {
+    public ScoreRefundRiskSkill(RefundOrderDataClient orderDataClient, RefundRiskDataService refundRiskDataService) {
         this.orderDataClient = orderDataClient;
         this.refundRiskDataService = refundRiskDataService;
     }
@@ -46,7 +44,8 @@ public class ScoreRefundRiskSkill extends AbstractRefundSkill<RefundSkillOutput>
         int riskScore = assessTextRisk(text, reasons);
         String orderNo = context.getSlot(RefundSlots.ORDER_NO);
         if (orderNo != null) {
-            OrderRefundSnapshotResponse snapshot = orderDataClient.getRefundSnapshot(orderNo).orElse(null);
+            OrderRefundSnapshotResponse snapshot =
+                    orderDataClient.getRefundSnapshot(orderNo).orElse(null);
             if (snapshot != null) {
                 RefundRiskProfile profile = refundRiskDataService.load(snapshot.getUserId(), orderNo);
                 riskScore = Math.max(riskScore, assessOrderRisk(snapshot, profile, reasons, updates));
@@ -61,10 +60,11 @@ public class ScoreRefundRiskSkill extends AbstractRefundSkill<RefundSkillOutput>
         return new RefundSkillOutput(prompt, updates, decision);
     }
 
-    private int assessOrderRisk(OrderRefundSnapshotResponse snapshot,
-                                RefundRiskProfile profile,
-                                List<String> reasons,
-                                Map<String, String> updates) {
+    private int assessOrderRisk(
+            OrderRefundSnapshotResponse snapshot,
+            RefundRiskProfile profile,
+            List<String> reasons,
+            Map<String, String> updates) {
         int score = 0;
         updates.put(RefundSlots.USER_ID, String.valueOf(snapshot.getUserId()));
         updates.put(RefundSlots.ORDER_STATUS, snapshot.getStatus().name());

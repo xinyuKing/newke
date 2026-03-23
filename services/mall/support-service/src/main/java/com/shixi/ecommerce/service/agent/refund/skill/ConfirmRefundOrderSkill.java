@@ -6,10 +6,9 @@ import com.shixi.ecommerce.service.agent.refund.RefundContext;
 import com.shixi.ecommerce.service.agent.refund.RefundDeliveryStatus;
 import com.shixi.ecommerce.service.agent.refund.RefundSlots;
 import com.shixi.ecommerce.service.agent.refund.data.RefundOrderDataClient;
-import org.springframework.stereotype.Service;
-
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class ConfirmRefundOrderSkill extends AbstractRefundSkill<RefundSkillOutput> {
@@ -31,10 +30,11 @@ public class ConfirmRefundOrderSkill extends AbstractRefundSkill<RefundSkillOutp
         if (orderNo == null) {
             return new RefundSkillOutput("Ask customer to provide order number before refund handling.");
         }
-        return orderDataClient.getRefundSnapshot(orderNo)
+        return orderDataClient
+                .getRefundSnapshot(orderNo)
                 .map(snapshot -> new RefundSkillOutput(buildPrompt(snapshot), buildUpdates(snapshot), null))
-                .orElseGet(() -> new RefundSkillOutput(
-                        "Order " + orderNo + " was not found in order service. Ask customer to verify the order number."));
+                .orElseGet(() -> new RefundSkillOutput("Order " + orderNo
+                        + " was not found in order service. Ask customer to verify the order number."));
     }
 
     private String buildPrompt(OrderRefundSnapshotResponse snapshot) {

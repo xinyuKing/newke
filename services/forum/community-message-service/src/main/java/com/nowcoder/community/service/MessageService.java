@@ -3,11 +3,10 @@ package com.nowcoder.community.service;
 import com.nowcoder.community.dao.MessageMapper;
 import com.nowcoder.community.entity.Message;
 import com.nowcoder.community.util.SensitiveFilter;
-import org.springframework.stereotype.Service;
-import org.springframework.web.util.HtmlUtils;
-
 import java.util.List;
 import java.util.Objects;
+import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 /**
  * Service for private letters and system notices.
@@ -76,9 +75,7 @@ public class MessageService {
     }
 
     public boolean isUnreadForUser(Message message, int userId) {
-        return message != null
-                && message.getStatus() == MESSAGE_STATUS_UNREAD
-                && message.getToId() == userId;
+        return message != null && message.getStatus() == MESSAGE_STATUS_UNREAD && message.getToId() == userId;
     }
 
     private String sanitizeContent(String content) {

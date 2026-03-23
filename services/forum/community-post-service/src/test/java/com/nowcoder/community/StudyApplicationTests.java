@@ -3,6 +3,8 @@ package com.nowcoder.community;
 import com.nowcoder.community.config.AlphaConfig;
 import com.nowcoder.community.dao.AlphaDao;
 import com.nowcoder.community.service.AlphaService;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.BeansException;
@@ -14,59 +16,57 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 @RunWith(SpringRunner.class)
 @SpringBootTest
 @ContextConfiguration(classes = PostServiceApplication.class)
 public class StudyApplicationTests implements ApplicationContextAware {
-	private ApplicationContext applicationContext;
-	@Override
-	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-		this.applicationContext=applicationContext;
-	}
+    private ApplicationContext applicationContext;
 
-	@Test
-	public void testApplicationContext(){
-		System.out.println(applicationContext);
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
 
-		AlphaDao alphaDao=applicationContext.getBean(AlphaDao.class);
-		System.out.println(alphaDao.select());
+    @Test
+    public void testApplicationContext() {
+        System.out.println(applicationContext);
 
-		alphaDao=applicationContext.getBean("alphaHibernate",AlphaDao.class);
-		System.out.println(alphaDao.select());
-	}
+        AlphaDao alphaDao = applicationContext.getBean(AlphaDao.class);
+        System.out.println(alphaDao.select());
 
-	@Test
-	public void testBeanManagement(){
-		AlphaService alphaService=applicationContext.getBean(AlphaService.class);
-		System.out.println(alphaService);
+        alphaDao = applicationContext.getBean("alphaHibernate", AlphaDao.class);
+        System.out.println(alphaDao.select());
+    }
 
-		alphaService=applicationContext.getBean(AlphaService.class);
-		System.out.println(alphaService);
-	}
+    @Test
+    public void testBeanManagement() {
+        AlphaService alphaService = applicationContext.getBean(AlphaService.class);
+        System.out.println(alphaService);
 
-	@Test
-	public void testBeanConfig(){
-		SimpleDateFormat simpleDateFormat=applicationContext.getBean(SimpleDateFormat.class);
-		System.out.println(simpleDateFormat.format(new Date()));
-	}
+        alphaService = applicationContext.getBean(AlphaService.class);
+        System.out.println(alphaService);
+    }
 
-	@Autowired
-	@Qualifier("alphaHibernate") //制定自己想创建那个容器
-	private AlphaDao alphaDao;
+    @Test
+    public void testBeanConfig() {
+        SimpleDateFormat simpleDateFormat = applicationContext.getBean(SimpleDateFormat.class);
+        System.out.println(simpleDateFormat.format(new Date()));
+    }
 
-	@Autowired
-	private AlphaService alphaService;
+    @Autowired
+    @Qualifier("alphaHibernate") // 制定自己想创建那个容器
+    private AlphaDao alphaDao;
 
-	@Autowired
-	private AlphaConfig alphaConfig;
+    @Autowired
+    private AlphaService alphaService;
 
-	@Test
-	public void testDI(){
-		System.out.println(alphaDao.select());
-		System.out.println(alphaService);
-		System.out.println(alphaConfig);
-	}
+    @Autowired
+    private AlphaConfig alphaConfig;
+
+    @Test
+    public void testDI() {
+        System.out.println(alphaDao.select());
+        System.out.println(alphaService);
+        System.out.println(alphaConfig);
+    }
 }

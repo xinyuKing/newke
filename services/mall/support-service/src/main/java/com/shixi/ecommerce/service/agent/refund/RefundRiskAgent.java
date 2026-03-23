@@ -13,10 +13,11 @@ public class RefundRiskAgent implements RefundSubAgent {
     private final ModelClient modelClient;
     private final RefundSkillRegistry skillRegistry;
 
-    public RefundRiskAgent(AgentProfileRegistry profileRegistry,
-                           RagService ragService,
-                           ModelClient modelClient,
-                           RefundSkillRegistry skillRegistry) {
+    public RefundRiskAgent(
+            AgentProfileRegistry profileRegistry,
+            RagService ragService,
+            ModelClient modelClient,
+            RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;
@@ -31,17 +32,12 @@ public class RefundRiskAgent implements RefundSubAgent {
     @Override
     public RefundAgentOutput handle(RefundContext context) {
         RefundSkillOutput skillOutput = skillRegistry.execute(
-                RefundSkillNames.SCORE_RISK,
-                RefundSkillRequest.builder(context).build(),
-                RefundSkillOutput.class);
+                RefundSkillNames.SCORE_RISK, RefundSkillRequest.builder(context).build(), RefundSkillOutput.class);
         AgentProfile profile = profileRegistry.getProfile(getType());
         String prompt = skillOutput.getPrompt();
         var docs = ragService.retrieve(prompt, profile.getRagCollection());
         String reply = modelClient.generate(profile, prompt, docs);
         return new RefundAgentOutput(
-                reply,
-                skillOutput.getUpdates(),
-                skillOutput.getDecision(),
-                String.join(" | ", docs));
+                reply, skillOutput.getUpdates(), skillOutput.getDecision(), String.join(" | ", docs));
     }
 }

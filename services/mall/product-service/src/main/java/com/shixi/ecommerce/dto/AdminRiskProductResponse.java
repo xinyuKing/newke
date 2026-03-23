@@ -9,13 +9,14 @@ public class AdminRiskProductResponse {
     private double negativeRatio;
     private String summary;
 
-    public AdminRiskProductResponse(Long productId,
-                                    Long merchantId,
-                                    String productName,
-                                    long totalReviews,
-                                    long negativeReviews,
-                                    double negativeRatio,
-                                    String summary) {
+    public AdminRiskProductResponse(
+            Long productId,
+            Long merchantId,
+            String productName,
+            long totalReviews,
+            long negativeReviews,
+            double negativeRatio,
+            String summary) {
         this.productId = productId;
         this.merchantId = merchantId;
         this.productName = productName;

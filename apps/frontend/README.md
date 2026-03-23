@@ -28,6 +28,7 @@ Copy from `apps/frontend/.env.example` when you need to override local proxy tar
 - `VITE_GATEWAY_PROXY_TARGET`: default proxy target for the unified gateway.
 - `VITE_FORUM_PROXY_TARGET`: optional forum-only override.
 - `VITE_MALL_PROXY_TARGET`: optional mall-only override.
+- `VITE_MALL_API_BASE`: mall API base path, defaults to `/api`.
 
 ## Setup
 
@@ -42,9 +43,9 @@ Default dev server runs at `http://localhost:5173`.
 ## Proxy Strategy
 
 - `/community/**` -> `http://localhost:8080`
-- `/mall-api/**` -> `http://localhost:8080/api/**`
+- `/api/**` -> `http://localhost:8080/api/**`
 
-That means frontend development now targets the unified gateway instead of treating forum and mall as two separate browser-side backends.
+That keeps the mall frontend on the same `/api/**` path in both development and production, instead of relying on a dev-only rewrite path.
 
 ## Build
 

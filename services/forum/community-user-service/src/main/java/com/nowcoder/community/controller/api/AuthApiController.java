@@ -33,7 +33,9 @@ public class AuthApiController {
      */
     @PostMapping("/api/auth/login")
     public ApiResponse<AuthUserResponse> login(@RequestBody AuthLoginRequest request) {
-        if (request == null || StringUtils.isBlank(request.getUsername()) || StringUtils.isBlank(request.getPassword())) {
+        if (request == null
+                || StringUtils.isBlank(request.getUsername())
+                || StringUtils.isBlank(request.getPassword())) {
             return ApiResponse.error(400, "invalid_request");
         }
 
@@ -60,7 +62,9 @@ public class AuthApiController {
      */
     @PostMapping("/api/auth/register")
     public ApiResponse<AuthUserResponse> register(@RequestBody AuthRegisterRequest request) {
-        if (request == null || StringUtils.isBlank(request.getUsername()) || StringUtils.isBlank(request.getPassword())) {
+        if (request == null
+                || StringUtils.isBlank(request.getUsername())
+                || StringUtils.isBlank(request.getPassword())) {
             return ApiResponse.error(400, "invalid_request");
         }
 
@@ -86,7 +90,6 @@ public class AuthApiController {
                 user.getType(),
                 user.getStatus(),
                 user.getEmail(),
-                user.getHeaderUrl()
-        );
+                user.getHeaderUrl());
     }
 }

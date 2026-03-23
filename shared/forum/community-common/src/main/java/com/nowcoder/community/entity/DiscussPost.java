@@ -1,11 +1,10 @@
 package com.nowcoder.community.entity;
 
+import java.util.Date;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-
-import java.util.Date;
 
 @Document(indexName = "discusspost")
 public class DiscussPost {
@@ -15,10 +14,10 @@ public class DiscussPost {
     @Field(type = FieldType.Integer)
     private int userId;
 
-    @Field(type = FieldType.Text,analyzer = "ik_max_word",searchAnalyzer = "ik_smart")
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
     private String title;
 
-    @Field(type = FieldType.Text,analyzer = "ik_max_word",searchAnalyzer = "ik_smart")
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
     private String content;
 
     @Field(type = FieldType.Text, index = false)
@@ -39,10 +38,19 @@ public class DiscussPost {
     @Field(type = FieldType.Double)
     private double score;
 
-    public DiscussPost() {
-    }
+    public DiscussPost() {}
 
-    public DiscussPost(int id, int userId, String title, String content, String media, int type, int status, Date createTime, int commentCount, double score) {
+    public DiscussPost(
+            int id,
+            int userId,
+            String title,
+            String content,
+            String media,
+            int type,
+            int status,
+            Date createTime,
+            int commentCount,
+            double score) {
         this.id = id;
         this.userId = userId;
         this.title = title;
@@ -137,17 +145,16 @@ public class DiscussPost {
 
     @Override
     public String toString() {
-        return "DiscussPost{" +
-                "id=" + id +
-                ", userId=" + userId +
-                ", title='" + title + '\'' +
-                ", content='" + content + '\'' +
-                ", media='" + media + '\'' +
-                ", type=" + type +
-                ", status=" + status +
-                ", createTime=" + createTime +
-                ", commentCount=" + commentCount +
-                ", score=" + score +
-                '}';
+        return "DiscussPost{" + "id="
+                + id + ", userId="
+                + userId + ", title='"
+                + title + '\'' + ", content='"
+                + content + '\'' + ", media='"
+                + media + '\'' + ", type="
+                + type + ", status="
+                + status + ", createTime="
+                + createTime + ", commentCount="
+                + commentCount + ", score="
+                + score + '}';
     }
 }

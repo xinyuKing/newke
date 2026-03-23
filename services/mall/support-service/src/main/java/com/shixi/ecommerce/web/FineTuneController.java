@@ -5,7 +5,10 @@ import com.shixi.ecommerce.dto.FineTuneRequest;
 import com.shixi.ecommerce.dto.FineTuneResponse;
 import com.shixi.ecommerce.service.FineTuneService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/ai")

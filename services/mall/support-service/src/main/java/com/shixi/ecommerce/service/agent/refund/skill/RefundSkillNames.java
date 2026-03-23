@@ -11,6 +11,5 @@ public final class RefundSkillNames {
     public static final String COMPOSE_REPLY = "compose_customer_reply";
     public static final String VALIDATE_REPLY = "validate_reply";
 
-    private RefundSkillNames() {
-    }
+    private RefundSkillNames() {}
 }

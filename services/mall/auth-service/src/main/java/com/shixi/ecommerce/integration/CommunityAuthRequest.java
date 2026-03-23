@@ -6,8 +6,7 @@ public class CommunityAuthRequest {
     private String email;
     private boolean autoActivate = true;
 
-    public CommunityAuthRequest() {
-    }
+    public CommunityAuthRequest() {}
 
     public CommunityAuthRequest(String username, String password, String email, boolean autoActivate) {
         this.username = username;

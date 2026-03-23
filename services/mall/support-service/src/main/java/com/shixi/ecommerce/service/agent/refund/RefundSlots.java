@@ -22,6 +22,5 @@ public final class RefundSlots {
     public static final String OPEN_AFTER_SALE_COUNT = "openAfterSaleCount";
     public static final String EXISTING_AFTER_SALE = "existingAfterSale";
 
-    private RefundSlots() {
-    }
+    private RefundSlots() {}
 }

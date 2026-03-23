@@ -69,7 +69,7 @@
         insert into message(<include refid="insertFields"></include>)
          values(#{fromId},#{toId},#{conversationId},#{content},#{status},#{createTime})
     </insert>
-    
+
     <update id="updateStatus">
         update message set status=#{status} where id in
         <foreach collection="ids" item="id" open="(" separator=","  close=")">

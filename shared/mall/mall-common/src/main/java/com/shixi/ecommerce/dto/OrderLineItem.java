@@ -16,8 +16,7 @@ public class OrderLineItem {
     /** 单价（服务端定价后写入）。 */
     private BigDecimal price;
 
-    public OrderLineItem() {
-    }
+    public OrderLineItem() {}
 
     public OrderLineItem(Long skuId, Integer quantity, BigDecimal price) {
         this.skuId = skuId;

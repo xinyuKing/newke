@@ -10,6 +10,10 @@ import com.shixi.ecommerce.dto.ReviewCreateRequest;
 import com.shixi.ecommerce.dto.ReviewResponse;
 import com.shixi.ecommerce.dto.ReviewSliceResponse;
 import com.shixi.ecommerce.repository.ReviewRepository;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,11 +23,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 评价领域服务，负责新增评价与分页查询。
@@ -47,13 +46,14 @@ public class ReviewService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    public ReviewService(ReviewRepository reviewRepository,
-                         ReviewSummaryPublisher reviewSummaryPublisher,
-                         ReviewStatsPublisher reviewStatsPublisher,
-                         ProductService productService,
-                         CacheManager cacheManager,
-                         StringRedisTemplate redisTemplate,
-                         ObjectMapper objectMapper) {
+    public ReviewService(
+            ReviewRepository reviewRepository,
+            ReviewSummaryPublisher reviewSummaryPublisher,
+            ReviewStatsPublisher reviewStatsPublisher,
+            ProductService productService,
+            CacheManager cacheManager,
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper) {
         this.reviewRepository = reviewRepository;
         this.reviewSummaryPublisher = reviewSummaryPublisher;
         this.reviewStatsPublisher = reviewStatsPublisher;
@@ -113,15 +113,13 @@ public class ReviewService {
         int pageSize = normalizeSize(size);
         Slice<Review> slice;
         if (rating == null) {
-            slice = reviewRepository.findByProductIdOrderByCreatedAtDesc(
-                    productId, PageRequest.of(pageNo, pageSize));
+            slice = reviewRepository.findByProductIdOrderByCreatedAtDesc(productId, PageRequest.of(pageNo, pageSize));
         } else {
             slice = reviewRepository.findByProductIdAndRatingOrderByCreatedAtDesc(
                     productId, rating, PageRequest.of(pageNo, pageSize));
         }
-        List<ReviewResponse> items = slice.getContent().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<ReviewResponse> items =
+                slice.getContent().stream().map(this::toResponse).collect(Collectors.toList());
         return new ReviewSliceResponse(items, slice.hasNext());
     }
 
@@ -136,11 +134,8 @@ public class ReviewService {
      * @return 游标分页结果
      */
     @Transactional(readOnly = true)
-    public CursorPageResponse<ReviewResponse> listReviewsCursor(Long productId,
-                                                                Integer rating,
-                                                                LocalDateTime cursorTime,
-                                                                Long cursorId,
-                                                                Integer size) {
+    public CursorPageResponse<ReviewResponse> listReviewsCursor(
+            Long productId, Integer rating, LocalDateTime cursorTime, Long cursorId, Integer size) {
         if (productId == null) {
             throw new BusinessException("ProductId required");
         }
@@ -149,10 +144,10 @@ public class ReviewService {
         String cursorTimeKey = cursorTime == null ? "none" : cursorTime.toString();
         String cursorIdKey = cursorId == null ? "none" : String.valueOf(cursorId);
         String ratingKey = rating == null ? "all" : String.valueOf(rating);
-        String cacheKey = REVIEW_LIST_CACHE_PREFIX + productId + ":v" + version + ":r"
-                + ratingKey + ":" + cursorTimeKey + ":" + cursorIdKey + ":" + pageSize;
-        CursorPageResponse<ReviewResponse> cached = getCache(cacheKey,
-                new TypeReference<CursorPageResponse<ReviewResponse>>() {});
+        String cacheKey = REVIEW_LIST_CACHE_PREFIX + productId + ":v" + version + ":r" + ratingKey + ":" + cursorTimeKey
+                + ":" + cursorIdKey + ":" + pageSize;
+        CursorPageResponse<ReviewResponse> cached =
+                getCache(cacheKey, new TypeReference<CursorPageResponse<ReviewResponse>>() {});
         if (cached != null) {
             return cached;
         }
@@ -161,8 +156,10 @@ public class ReviewService {
                 rating,
                 cursorTime,
                 cursorId,
-                PageRequest.of(0, pageSize + 1, Sort.by(Sort.Direction.DESC, "createdAt")
-                        .and(Sort.by(Sort.Direction.DESC, "id"))));
+                PageRequest.of(
+                        0,
+                        pageSize + 1,
+                        Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))));
         boolean hasNext = reviews.size() > pageSize;
         if (hasNext) {
             reviews = reviews.subList(0, pageSize);
@@ -196,8 +193,7 @@ public class ReviewService {
                 review.getUserId(),
                 review.getRating(),
                 review.getContent(),
-                review.getCreatedAt()
-        );
+                review.getCreatedAt());
     }
 
     private int normalizePage(Integer page) {

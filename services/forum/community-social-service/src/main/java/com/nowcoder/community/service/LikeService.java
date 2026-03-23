@@ -1,14 +1,7 @@
-﻿package com.nowcoder.community.service;
+package com.nowcoder.community.service;
 
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.RedisKeyUtil;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SessionCallback;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -17,6 +10,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.stereotype.Service;
 
 /**
  * 点赞服务。
@@ -30,20 +28,17 @@ public class LikeService implements CommunityConstant {
 
     static {
         LIKE_TOGGLE_SCRIPT.setResultType(Long.class);
-        LIKE_TOGGLE_SCRIPT.setScriptText(
-                "local entityLikeKey = KEYS[1]\n" +
-                "local userLikeKey = KEYS[2]\n" +
-                "local userId = ARGV[1]\n" +
-                "if redis.call('SISMEMBER', entityLikeKey, userId) == 1 then\n" +
-                "  redis.call('SREM', entityLikeKey, userId)\n" +
-                "  redis.call('DECR', userLikeKey)\n" +
-                "  return 0\n" +
-                "else\n" +
-                "  redis.call('SADD', entityLikeKey, userId)\n" +
-                "  redis.call('INCR', userLikeKey)\n" +
-                "  return 1\n" +
-                "end"
-        );
+        LIKE_TOGGLE_SCRIPT.setScriptText("local entityLikeKey = KEYS[1]\n" + "local userLikeKey = KEYS[2]\n"
+                + "local userId = ARGV[1]\n"
+                + "if redis.call('SISMEMBER', entityLikeKey, userId) == 1 then\n"
+                + "  redis.call('SREM', entityLikeKey, userId)\n"
+                + "  redis.call('DECR', userLikeKey)\n"
+                + "  return 0\n"
+                + "else\n"
+                + "  redis.call('SADD', entityLikeKey, userId)\n"
+                + "  redis.call('INCR', userLikeKey)\n"
+                + "  return 1\n"
+                + "end");
     }
 
     private final RedisTemplate<String, Object> redisTemplate;
@@ -117,12 +112,15 @@ public class LikeService implements CommunityConstant {
         if (idList.isEmpty()) {
             return Collections.emptyMap();
         }
-        List<Object> results = redisTemplate.executePipelined((SessionCallback<Object>) operations -> {
-            for (Integer entityId : idList) {
-                String key = RedisKeyUtil.getEntityLikeKey(entityType, entityId);
-                operations.opsForSet().size(key);
+        List<Object> results = redisTemplate.executePipelined(new SessionCallback<>() {
+            @Override
+            public Object execute(RedisOperations operations) {
+                for (Integer entityId : idList) {
+                    String key = RedisKeyUtil.getEntityLikeKey(entityType, entityId);
+                    operations.opsForSet().size(key);
+                }
+                return null;
             }
-            return null;
         });
 
         Map<Integer, Long> likeCountMap = new LinkedHashMap<>();
@@ -146,12 +144,15 @@ public class LikeService implements CommunityConstant {
         if (idList.isEmpty()) {
             return Collections.emptyMap();
         }
-        List<Object> results = redisTemplate.executePipelined((SessionCallback<Object>) operations -> {
-            for (Integer entityId : idList) {
-                String key = RedisKeyUtil.getEntityLikeKey(entityType, entityId);
-                operations.opsForSet().isMember(key, userId);
+        List<Object> results = redisTemplate.executePipelined(new SessionCallback<>() {
+            @Override
+            public Object execute(RedisOperations operations) {
+                for (Integer entityId : idList) {
+                    String key = RedisKeyUtil.getEntityLikeKey(entityType, entityId);
+                    operations.opsForSet().isMember(key, userId);
+                }
+                return null;
             }
-            return null;
         });
 
         Map<Integer, Integer> likeStatusMap = new LinkedHashMap<>();

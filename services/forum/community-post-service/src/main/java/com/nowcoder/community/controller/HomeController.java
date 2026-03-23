@@ -8,11 +8,6 @@ import com.nowcoder.community.entity.User;
 import com.nowcoder.community.service.DiscussPostService;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -20,6 +15,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * 论坛首页控制器。
@@ -31,9 +30,7 @@ public class HomeController implements CommunityConstant {
     private final DiscussPostService discussPostService;
     private final LikeClient likeClient;
 
-    public HomeController(UserClient userClient,
-                          DiscussPostService discussPostService,
-                          LikeClient likeClient) {
+    public HomeController(UserClient userClient, DiscussPostService discussPostService, LikeClient likeClient) {
         this.userClient = userClient;
         this.discussPostService = discussPostService;
         this.likeClient = likeClient;
@@ -48,14 +45,14 @@ public class HomeController implements CommunityConstant {
      * @return 视图名称
      */
     @GetMapping("/index")
-    public String getIndexPage(Model model,
-                               Page page,
-                               @RequestParam(name = "orderMode", defaultValue = "0") int orderMode) {
+    public String getIndexPage(
+            Model model, Page page, @RequestParam(name = "orderMode", defaultValue = "0") int orderMode) {
         int safeOrderMode = orderMode == 1 ? 1 : 0;
         page.setRows(discussPostService.selectDiscussPostRows(0));
         page.setPath("/index?orderMode=" + safeOrderMode);
 
-        List<DiscussPost> posts = discussPostService.findDiscussPosts(0, page.getOffset(), page.getLimit(), safeOrderMode);
+        List<DiscussPost> posts =
+                discussPostService.findDiscussPosts(0, page.getOffset(), page.getLimit(), safeOrderMode);
         if (posts == null) {
             posts = Collections.emptyList();
         }

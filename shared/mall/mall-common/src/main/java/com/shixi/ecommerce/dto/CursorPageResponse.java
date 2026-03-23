@@ -4,9 +4,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 游标分页响应。
+ * Cursor pagination response.
  *
- * @param <T> 元素类型
+ * @param <T> item type
  * @author shixi
  * @date 2026-03-20
  */

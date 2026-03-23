@@ -17,13 +17,14 @@ public class UserProfileResponse {
     private String phone;
     private LocalDateTime createdAt;
 
-    public UserProfileResponse(Long userId,
-                               String username,
-                               String nickname,
-                               String avatarUrl,
-                               String email,
-                               String phone,
-                               LocalDateTime createdAt) {
+    public UserProfileResponse(
+            Long userId,
+            String username,
+            String nickname,
+            String avatarUrl,
+            String email,
+            String phone,
+            LocalDateTime createdAt) {
         this.userId = userId;
         this.username = username;
         this.nickname = nickname;

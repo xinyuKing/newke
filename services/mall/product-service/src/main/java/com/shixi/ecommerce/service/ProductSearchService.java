@@ -9,6 +9,15 @@ import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.dto.CursorPageResponse;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.ProductRepository;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -19,19 +28,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 商品搜索服务，支持数据库与 OpenSearch 两种实现。
@@ -52,11 +51,12 @@ public class ProductSearchService {
 
     private final Logger log = LoggerFactory.getLogger(ProductSearchService.class);
 
-    public ProductSearchService(ProductRepository productRepository,
-                                ProductMapper productMapper,
-                                SearchProperties searchProperties,
-                                RestTemplate restTemplate,
-                                ObjectMapper objectMapper) {
+    public ProductSearchService(
+            ProductRepository productRepository,
+            ProductMapper productMapper,
+            SearchProperties searchProperties,
+            RestTemplate restTemplate,
+            ObjectMapper objectMapper) {
         this.productRepository = productRepository;
         this.productMapper = productMapper;
         this.searchProperties = searchProperties;
@@ -74,10 +74,8 @@ public class ProductSearchService {
      * @return 游标分页结果
      */
     @Transactional(readOnly = true)
-    public CursorPageResponse<ProductResponse> searchActiveProducts(String keyword,
-                                                                    LocalDateTime cursorTime,
-                                                                    Long cursorId,
-                                                                    Integer size) {
+    public CursorPageResponse<ProductResponse> searchActiveProducts(
+            String keyword, LocalDateTime cursorTime, Long cursorId, Integer size) {
         int pageSize = normalizeSize(size);
         if (!"opensearch".equalsIgnoreCase(searchProperties.getProvider())) {
             return searchFromDb(keyword, cursorTime, cursorId, pageSize);
@@ -93,18 +91,18 @@ public class ProductSearchService {
         }
     }
 
-    private CursorPageResponse<ProductResponse> searchFromDb(String keyword,
-                                                             LocalDateTime cursorTime,
-                                                             Long cursorId,
-                                                             int pageSize) {
+    private CursorPageResponse<ProductResponse> searchFromDb(
+            String keyword, LocalDateTime cursorTime, Long cursorId, int pageSize) {
         String normalized = StringUtils.hasText(keyword) ? keyword.trim() : null;
         List<Product> products = productRepository.searchByStatusCursor(
                 ProductStatus.ACTIVE,
                 normalized,
                 cursorTime,
                 cursorId,
-                PageRequest.of(0, pageSize + 1, Sort.by(Sort.Direction.DESC, "createdAt")
-                        .and(Sort.by(Sort.Direction.DESC, "id"))));
+                PageRequest.of(
+                        0,
+                        pageSize + 1,
+                        Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))));
         boolean hasNext = products.size() > pageSize;
         if (hasNext) {
             products = products.subList(0, pageSize);
@@ -116,16 +114,13 @@ public class ProductSearchService {
             nextTime = last.getCreatedAt();
             nextId = last.getId();
         }
-        List<ProductResponse> items = products.stream()
-                .map(productMapper::toResponse)
-                .collect(Collectors.toList());
+        List<ProductResponse> items =
+                products.stream().map(productMapper::toResponse).collect(Collectors.toList());
         return new CursorPageResponse<>(items, hasNext, nextTime, nextId);
     }
 
-    private CursorPageResponse<ProductResponse> searchFromOpenSearch(String keyword,
-                                                                     LocalDateTime cursorTime,
-                                                                     Long cursorId,
-                                                                     int pageSize) throws Exception {
+    private CursorPageResponse<ProductResponse> searchFromOpenSearch(
+            String keyword, LocalDateTime cursorTime, Long cursorId, int pageSize) throws Exception {
         String baseUrl = searchProperties.getOpenSearch().getUrl();
         if (!StringUtils.hasText(baseUrl)) {
             throw new BusinessException("OpenSearch url missing");
@@ -135,12 +130,11 @@ public class ProductSearchService {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("size", pageSize + 1);
-        body.put("_source", List.of("id", "merchantId", "name", "description", "videoUrl", "price", "status", "createdAt"));
+        body.put(
+                "_source",
+                List.of("id", "merchantId", "name", "description", "videoUrl", "price", "status", "createdAt"));
         body.put("query", buildQuery(keyword));
-        body.put("sort", List.of(
-                Map.of("createdAt", Map.of("order", "desc")),
-                Map.of("id", Map.of("order", "desc"))
-        ));
+        body.put("sort", List.of(Map.of("createdAt", Map.of("order", "desc")), Map.of("id", Map.of("order", "desc"))));
         if (cursorTime != null && cursorId != null) {
             body.put("search_after", List.of(cursorTime.toString(), cursorId));
         }
@@ -201,25 +195,20 @@ public class ProductSearchService {
     }
 
     private Map<String, Object> buildQuery(String keyword) {
-        Map<String, Object> filter = Map.of(
-                "term", Map.of("status", ProductStatus.ACTIVE.name())
-        );
+        Map<String, Object> filter = Map.of("term", Map.of("status", ProductStatus.ACTIVE.name()));
         if (!StringUtils.hasText(keyword)) {
             return Map.of("bool", Map.of("filter", List.of(filter)));
         }
         Map<String, Object> must = new HashMap<>();
         String normalized = keyword.trim();
-        must.put("multi_match", Map.of(
-                "query", normalized,
-                "fields", List.of("name^2", "description"),
-                "type", "best_fields"
-        ));
+        must.put(
+                "multi_match",
+                Map.of("query", normalized, "fields", List.of("name^2", "description"), "type", "best_fields"));
         return Map.of(
-                "bool", Map.of(
+                "bool",
+                Map.of(
                         "must", List.of(must),
-                        "filter", List.of(filter)
-                )
-        );
+                        "filter", List.of(filter)));
     }
 
     private void applyBasicAuth(HttpHeaders headers) {
@@ -229,8 +218,7 @@ public class ProductSearchService {
             return;
         }
         String token = Base64.getEncoder()
-                .encodeToString((username + ":" + (password == null ? "" : password))
-                        .getBytes(StandardCharsets.UTF_8));
+                .encodeToString((username + ":" + (password == null ? "" : password)).getBytes(StandardCharsets.UTF_8));
         headers.set(HttpHeaders.AUTHORIZATION, "Basic " + token);
     }
 
@@ -252,8 +240,7 @@ public class ProductSearchService {
                 description,
                 videoUrl,
                 priceNode.isNumber() ? priceNode.decimalValue() : java.math.BigDecimal.ZERO,
-                ProductStatus.valueOf(status)
-        );
+                ProductStatus.valueOf(status));
     }
 
     private int normalizeSize(Integer size) {

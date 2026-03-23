@@ -1,18 +1,17 @@
-﻿package com.nowcoder.community.controller.api;
+package com.nowcoder.community.controller.api;
 
 import com.nowcoder.community.entity.User;
 import com.nowcoder.community.service.DataService;
 import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.HostHolder;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * 后台统计开放接口。
@@ -39,8 +38,9 @@ public class DataApiController {
      * @return UV 统计结果
      */
     @GetMapping("/uv")
-    public ApiResponse<Map<String, Object>> uv(@RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
-                                               @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date end) {
+    public ApiResponse<Map<String, Object>> uv(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date end) {
         if (!isAdmin()) {
             return ApiResponse.error(403, "forbidden");
         }
@@ -60,8 +60,9 @@ public class DataApiController {
      * @return DAU 统计结果
      */
     @GetMapping("/dau")
-    public ApiResponse<Map<String, Object>> dau(@RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
-                                                @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date end) {
+    public ApiResponse<Map<String, Object>> dau(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date start,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") Date end) {
         if (!isAdmin()) {
             return ApiResponse.error(403, "forbidden");
         }

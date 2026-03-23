@@ -14,8 +14,8 @@ public class MerchantAnalysisController {
     private final MerchantAnalysisService merchantAnalysisService;
     private final CurrentUserService currentUserService;
 
-    public MerchantAnalysisController(MerchantAnalysisService merchantAnalysisService,
-                                      CurrentUserService currentUserService) {
+    public MerchantAnalysisController(
+            MerchantAnalysisService merchantAnalysisService, CurrentUserService currentUserService) {
         this.merchantAnalysisService = merchantAnalysisService;
         this.currentUserService = currentUserService;
     }

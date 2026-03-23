@@ -3,12 +3,10 @@ package com.shixi.ecommerce.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.List;
 
 public class CreateOrderItemsRequest {
-    @NotNull
-    private Long userId;
+    @NotNull private Long userId;
 
     @NotBlank
     private String idempotencyKey;

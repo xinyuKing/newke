@@ -4,8 +4,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public class CartUpdateRequest {
-    @NotNull
-    @Min(1)
+    @NotNull @Min(1)
     private Integer quantity;
 
     public Integer getQuantity() {

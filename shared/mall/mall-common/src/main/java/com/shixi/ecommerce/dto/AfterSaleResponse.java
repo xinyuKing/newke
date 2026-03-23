@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.AfterSaleStatus;
-
 import java.time.LocalDateTime;
 
 /**
@@ -17,11 +16,7 @@ public class AfterSaleResponse {
     private AfterSaleStatus status;
     private LocalDateTime createdAt;
 
-    public AfterSaleResponse(Long id,
-                             String orderNo,
-                             String reason,
-                             AfterSaleStatus status,
-                             LocalDateTime createdAt) {
+    public AfterSaleResponse(Long id, String orderNo, String reason, AfterSaleStatus status, LocalDateTime createdAt) {
         this.id = id;
         this.orderNo = orderNo;
         this.reason = reason;

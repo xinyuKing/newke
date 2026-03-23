@@ -1,13 +1,19 @@
 package com.shixi.ecommerce.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "idempotent_record", indexes = {
-        @Index(name = "idx_idempotent_biz", columnList = "bizKey", unique = true)
-})
+@Table(
+        name = "idempotent_record",
+        indexes = {@Index(name = "idx_idempotent_biz", columnList = "bizKey", unique = true)})
 public class IdempotentRecord {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -22,15 +22,20 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/support/**").hasRole("SUPPORT")
-                        .requestMatchers("/api/user/support/**").hasRole("USER")
-                        .requestMatchers("/api/user/after-sale/**").hasRole("USER")
-                        .requestMatchers("/api/agent/refund/intent/**").hasRole("ADMIN")
-                        .requestMatchers("/api/agent/**", "/api/ai/**").hasAnyRole("USER", "SUPPORT", "ADMIN")
-                        .requestMatchers("/actuator/health").permitAll()
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/support/**")
+                        .hasRole("SUPPORT")
+                        .requestMatchers("/api/user/support/**")
+                        .hasRole("USER")
+                        .requestMatchers("/api/user/after-sale/**")
+                        .hasRole("USER")
+                        .requestMatchers("/api/agent/refund/intent/**")
+                        .hasRole("ADMIN")
+                        .requestMatchers("/api/agent/**", "/api/ai/**")
+                        .hasAnyRole("USER", "SUPPORT", "ADMIN")
+                        .requestMatchers("/actuator/health")
+                        .permitAll()
+                        .anyRequest()
+                        .authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -4,10 +4,9 @@ import com.shixi.ecommerce.domain.SessionState;
 import com.shixi.ecommerce.service.agent.refund.FeedbackResult;
 import com.shixi.ecommerce.service.agent.refund.RefundContext;
 import com.shixi.ecommerce.service.agent.refund.RefundContextValidator;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.Locale;
+import org.springframework.stereotype.Service;
 
 @Service
 public class ValidateRefundReplySkill extends AbstractRefundSkill<FeedbackResult> {

@@ -17,9 +17,8 @@ public class RefundIntentTrainingService {
         if (request == null || request.getSamples() == null) {
             return new RefundIntentTrainResponse(RefundIntentAlgorithm.NAIVE_BAYES, 0, 0, 0, 0.0);
         }
-        RefundIntentAlgorithm algorithm = request.getAlgorithm() == null
-                ? RefundIntentAlgorithm.NAIVE_BAYES
-                : request.getAlgorithm();
+        RefundIntentAlgorithm algorithm =
+                request.getAlgorithm() == null ? RefundIntentAlgorithm.NAIVE_BAYES : request.getAlgorithm();
         int refundCount = 0;
         int nonRefundCount = 0;
         for (RefundIntentSample sample : request.getSamples()) {
@@ -33,6 +32,7 @@ public class RefundIntentTrainingService {
         double threshold = request.getThreshold() == null ? classifier.getThreshold() : request.getThreshold();
         classifier.updateThreshold(threshold);
         classifier.persistCurrent();
-        return new RefundIntentTrainResponse(algorithm, request.getSamples().size(), refundCount, nonRefundCount, threshold);
+        return new RefundIntentTrainResponse(
+                algorithm, request.getSamples().size(), refundCount, nonRefundCount, threshold);
     }
 }

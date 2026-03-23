@@ -19,7 +19,7 @@ public class QuartzTests {
     private Scheduler scheduler;
 
     @Test
-    public void testDeleteJob(){
+    public void testDeleteJob() {
         try {
             boolean result = scheduler.deleteJob(new JobKey("alphaJob", "alphaJobGroup"));
             System.out.println(result);

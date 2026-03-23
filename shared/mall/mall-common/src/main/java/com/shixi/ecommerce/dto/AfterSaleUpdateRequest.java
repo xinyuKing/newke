@@ -10,8 +10,7 @@ import jakarta.validation.constraints.NotNull;
  * @date 2026-03-20
  */
 public class AfterSaleUpdateRequest {
-    @NotNull
-    private AfterSaleStatus status;
+    @NotNull private AfterSaleStatus status;
 
     public AfterSaleStatus getStatus() {
         return status;

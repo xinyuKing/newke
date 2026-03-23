@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.config.GatewayAuthProperties;
 import com.shixi.ecommerce.security.JwtTokenProvider;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -15,10 +18,6 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
-import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * 统一网关鉴权过滤器。
@@ -37,9 +36,8 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
     private final GatewayAuthProperties properties;
     private final ObjectMapper objectMapper;
 
-    public GatewayAuthFilter(JwtTokenProvider tokenProvider,
-                             GatewayAuthProperties properties,
-                             ObjectMapper objectMapper) {
+    public GatewayAuthFilter(
+            JwtTokenProvider tokenProvider, GatewayAuthProperties properties, ObjectMapper objectMapper) {
         this.tokenProvider = tokenProvider;
         this.properties = properties;
         this.objectMapper = objectMapper;
@@ -57,8 +55,11 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
         }
 
         Long userId = tokenProvider.getUserId(token);
-        String role = tokenProvider.getRole(token) == null ? "" : tokenProvider.getRole(token).name();
-        ServerHttpRequest request = exchange.getRequest().mutate()
+        String role = tokenProvider.getRole(token) == null
+                ? ""
+                : tokenProvider.getRole(token).name();
+        ServerHttpRequest request = exchange.getRequest()
+                .mutate()
                 .header(properties.getUserIdHeader(), userId == null ? "" : String.valueOf(userId))
                 .header(properties.getRoleHeader(), role)
                 .build();
@@ -131,7 +132,8 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
 
         try {
             byte[] bytes = objectMapper.writeValueAsString(responseBody).getBytes(StandardCharsets.UTF_8);
-            return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));
+            return exchange.getResponse()
+                    .writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));
         } catch (JsonProcessingException ex) {
             return exchange.getResponse().setComplete();
         }

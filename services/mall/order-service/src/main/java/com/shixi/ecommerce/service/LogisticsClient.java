@@ -3,12 +3,11 @@ package com.shixi.ecommerce.service;
 import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.dto.TrackingEvent;
 import com.shixi.ecommerce.dto.TrackingResponse;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * 物流查询客户端。
@@ -23,10 +22,11 @@ public class LogisticsClient {
     private final String baseUrl;
     private final String apiKey;
 
-    public LogisticsClient(RestTemplate restTemplate,
-                           @Value("${logistics.provider:mock}") String provider,
-                           @Value("${logistics.api.url:}") String baseUrl,
-                           @Value("${logistics.api.key:}") String apiKey) {
+    public LogisticsClient(
+            RestTemplate restTemplate,
+            @Value("${logistics.provider:mock}") String provider,
+            @Value("${logistics.api.url:}") String baseUrl,
+            @Value("${logistics.api.key:}") String apiKey) {
         this.restTemplate = restTemplate;
         this.provider = provider;
         this.baseUrl = baseUrl;
@@ -49,8 +49,8 @@ public class LogisticsClient {
             return mock(orderNo, carrierCode, trackingNo);
         }
         String url = baseUrl + "/track?carrier={carrier}&trackingNo={trackingNo}&key={key}";
-        TrackingResponse response = restTemplate.getForObject(url, TrackingResponse.class,
-                carrierCode, trackingNo, apiKey);
+        TrackingResponse response =
+                restTemplate.getForObject(url, TrackingResponse.class, carrierCode, trackingNo, apiKey);
         if (response == null) {
             throw new BusinessException("Logistics query failed");
         }
@@ -61,8 +61,7 @@ public class LogisticsClient {
         List<TrackingEvent> events = List.of(
                 new TrackingEvent(LocalDateTime.now().minusDays(1), "揽收", "上海"),
                 new TrackingEvent(LocalDateTime.now().minusHours(8), "运输中", "苏州"),
-                new TrackingEvent(LocalDateTime.now().minusHours(2), "派送中", "南京")
-        );
+                new TrackingEvent(LocalDateTime.now().minusHours(2), "派送中", "南京"));
         return new TrackingResponse(orderNo, carrierCode, trackingNo, "运输中", events);
     }
 }

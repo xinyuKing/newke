@@ -2,11 +2,10 @@ package com.shixi.ecommerce.service;
 
 import com.shixi.ecommerce.domain.IdempotentRecord;
 import com.shixi.ecommerce.repository.IdempotentRecordRepository;
+import java.time.Duration;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-
-import java.time.Duration;
 
 @Service
 public class IdempotencyService {

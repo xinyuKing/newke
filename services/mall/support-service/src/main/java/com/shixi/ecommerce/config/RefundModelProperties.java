@@ -1,10 +1,9 @@
 package com.shixi.ecommerce.config;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "refund")
 public class RefundModelProperties {

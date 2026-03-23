@@ -7,12 +7,11 @@ import com.shixi.ecommerce.service.agent.refund.RefundContext;
 import com.shixi.ecommerce.service.agent.refund.RefundDeliveryStatus;
 import com.shixi.ecommerce.service.agent.refund.RefundSlots;
 import com.shixi.ecommerce.service.agent.refund.data.RefundOrderDataClient;
-import org.springframework.stereotype.Service;
-
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
 
 @Service
 public class VerifyRefundLogisticsSkill extends AbstractRefundSkill<RefundSkillOutput> {
@@ -66,9 +65,8 @@ public class VerifyRefundLogisticsSkill extends AbstractRefundSkill<RefundSkillO
         return new RefundSkillOutput(prompt, updates, null);
     }
 
-    private String resolveDeliveryStatus(String currentStatus,
-                                         OrderRefundSnapshotResponse snapshot,
-                                         TrackingResponse tracking) {
+    private String resolveDeliveryStatus(
+            String currentStatus, OrderRefundSnapshotResponse snapshot, TrackingResponse tracking) {
         if (tracking != null && isDelivered(tracking.getStatus())) {
             return RefundDeliveryStatus.DELIVERED.name();
         }
@@ -90,9 +88,8 @@ public class VerifyRefundLogisticsSkill extends AbstractRefundSkill<RefundSkillO
         return RefundDeliveryStatus.UNKNOWN.name();
     }
 
-    private String resolveAction(OrderRefundSnapshotResponse snapshot,
-                                 TrackingResponse tracking,
-                                 String deliveryStatus) {
+    private String resolveAction(
+            OrderRefundSnapshotResponse snapshot, TrackingResponse tracking, String deliveryStatus) {
         if (snapshot.getStatus() == OrderStatus.CREATED || snapshot.getStatus() == OrderStatus.PAID) {
             return "Order not shipped yet. Confirm whether the customer wants a direct refund before dispatch.";
         }

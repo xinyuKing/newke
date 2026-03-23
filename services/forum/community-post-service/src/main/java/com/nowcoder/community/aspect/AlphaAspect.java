@@ -24,8 +24,7 @@ public class AlphaAspect {
     private static final Logger LOGGER = LoggerFactory.getLogger(AlphaAspect.class);
 
     @Pointcut("execution(* com.nowcoder.community.service.*.*(..))")
-    public void pointcut() {
-    }
+    public void pointcut() {}
 
     @Before("pointcut()")
     public void before() {

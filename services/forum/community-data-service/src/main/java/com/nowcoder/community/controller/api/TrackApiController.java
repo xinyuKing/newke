@@ -1,15 +1,14 @@
-﻿package com.nowcoder.community.controller.api;
+package com.nowcoder.community.controller.api;
 
 import com.nowcoder.community.entity.User;
 import com.nowcoder.community.service.DataService;
 import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.HostHolder;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 访问埋点接口。

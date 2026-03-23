@@ -1,22 +1,21 @@
 package com.shixi.ecommerce.service.agent.refund.skill;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.shixi.ecommerce.domain.OrderStatus;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.dto.TrackingResponse;
 import com.shixi.ecommerce.service.agent.refund.RefundContext;
 import com.shixi.ecommerce.service.agent.refund.RefundSlots;
 import com.shixi.ecommerce.service.agent.refund.data.RefundOrderDataClient;
-import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.Test;
 
 class VerifyRefundLogisticsSkillTest {
     @Test
@@ -25,10 +24,12 @@ class VerifyRefundLogisticsSkillTest {
         VerifyRefundLogisticsSkill skill = new VerifyRefundLogisticsSkill(client);
         RefundContext context = new RefundContext();
         context.putSlot(RefundSlots.ORDER_NO, "O20260323002");
-        when(client.getRefundSnapshot("O20260323002")).thenReturn(Optional.of(snapshot("O20260323002", OrderStatus.PAID, null)));
+        when(client.getRefundSnapshot("O20260323002"))
+                .thenReturn(Optional.of(snapshot("O20260323002", OrderStatus.PAID, null)));
         when(client.getTracking("O20260323002")).thenReturn(Optional.empty());
 
-        RefundSkillOutput output = skill.execute(RefundSkillRequest.builder(context).build());
+        RefundSkillOutput output =
+                skill.execute(RefundSkillRequest.builder(context).build());
 
         assertEquals("NOT_RECEIVED", output.getUpdates().get(RefundSlots.DELIVERY_STATUS));
         assertTrue(output.getUpdates().get(RefundSlots.LOGISTICS_ACTION).contains("not shipped yet"));
@@ -40,16 +41,13 @@ class VerifyRefundLogisticsSkillTest {
         VerifyRefundLogisticsSkill skill = new VerifyRefundLogisticsSkill(client);
         RefundContext context = new RefundContext();
         context.putSlot(RefundSlots.ORDER_NO, "O20260323003");
-        when(client.getRefundSnapshot("O20260323003")).thenReturn(Optional.of(snapshot("O20260323003", OrderStatus.SHIPPED, "YT9988")));
-        when(client.getTracking("O20260323003")).thenReturn(Optional.of(new TrackingResponse(
-                "O20260323003",
-                "YTO",
-                "YT9988",
-                "DELIVERED",
-                List.of()
-        )));
+        when(client.getRefundSnapshot("O20260323003"))
+                .thenReturn(Optional.of(snapshot("O20260323003", OrderStatus.SHIPPED, "YT9988")));
+        when(client.getTracking("O20260323003"))
+                .thenReturn(Optional.of(new TrackingResponse("O20260323003", "YTO", "YT9988", "DELIVERED", List.of())));
 
-        RefundSkillOutput output = skill.execute(RefundSkillRequest.builder(context).build());
+        RefundSkillOutput output =
+                skill.execute(RefundSkillRequest.builder(context).build());
 
         assertEquals("DELIVERED", output.getUpdates().get(RefundSlots.DELIVERY_STATUS));
         assertEquals("DELIVERED", output.getUpdates().get(RefundSlots.TRACKING_STATUS));
@@ -66,7 +64,6 @@ class VerifyRefundLogisticsSkillTest {
                 trackingNo,
                 LocalDateTime.of(2026, 3, 23, 10, 0),
                 LocalDateTime.of(2026, 3, 22, 18, 0),
-                List.of()
-        );
+                List.of());
     }
 }

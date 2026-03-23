@@ -13,6 +13,9 @@ import com.qiniu.util.Auth;
 import com.qiniu.util.StringMap;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,10 +27,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 
 /**
  * 用户资料与账号设置控制器。
@@ -58,18 +57,19 @@ public class UserController implements CommunityConstant {
     private final String headerBucketUrl;
     private final String uploadHost;
 
-    public UserController(UserService userService,
-                          HostHolder hostHolder,
-                          LikeClient likeClient,
-                          FollowClient followClient,
-                          @Value("${community.path.upload}") String uploadPath,
-                          @Value("${community.path.domain}") String domain,
-                          @Value("${server.servlet.context-path}") String contextPath,
-                          @Value("${qiniu.key.access}") String accessKey,
-                          @Value("${qiniu.key.secret}") String secretKey,
-                          @Value("${qiniu.bucket.header.name}") String headerBucketName,
-                          @Value("${qiniu.bucket.header.url}") String headerBucketUrl,
-                          @Value("${qiniu.bucket.upload.host}") String uploadHost) {
+    public UserController(
+            UserService userService,
+            HostHolder hostHolder,
+            LikeClient likeClient,
+            FollowClient followClient,
+            @Value("${community.path.upload}") String uploadPath,
+            @Value("${community.path.domain}") String domain,
+            @Value("${server.servlet.context-path}") String contextPath,
+            @Value("${qiniu.key.access}") String accessKey,
+            @Value("${qiniu.key.secret}") String secretKey,
+            @Value("${qiniu.bucket.header.name}") String headerBucketName,
+            @Value("${qiniu.bucket.header.url}") String headerBucketUrl,
+            @Value("${qiniu.bucket.upload.host}") String uploadHost) {
         this.userService = userService;
         this.hostHolder = hostHolder;
         this.likeClient = likeClient;
@@ -204,7 +204,7 @@ public class UserController implements CommunityConstant {
 
         File sourceFile = new File(uploadPath, fileName);
         try (FileInputStream inputStream = new FileInputStream(sourceFile);
-             ServletOutputStream outputStream = response.getOutputStream()) {
+                ServletOutputStream outputStream = response.getOutputStream()) {
             byte[] buffer = new byte[FILE_STREAM_BUFFER_SIZE];
             int length;
             while ((length = inputStream.read(buffer)) != -1) {

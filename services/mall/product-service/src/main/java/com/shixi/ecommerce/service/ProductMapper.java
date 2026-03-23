@@ -23,7 +23,6 @@ public class ProductMapper {
                 product.getDescription(),
                 product.getVideoUrl(),
                 product.getPrice(),
-                product.getStatus()
-        );
+                product.getStatus());
     }
 }

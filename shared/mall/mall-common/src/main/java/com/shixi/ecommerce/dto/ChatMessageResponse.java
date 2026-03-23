@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.ChatSenderRole;
-
 import java.time.LocalDateTime;
 
 public class ChatMessageResponse {
@@ -12,7 +11,13 @@ public class ChatMessageResponse {
     private String content;
     private LocalDateTime createdAt;
 
-    public ChatMessageResponse(Long id, String sessionId, ChatSenderRole senderRole, Long senderId, String content, LocalDateTime createdAt) {
+    public ChatMessageResponse(
+            Long id,
+            String sessionId,
+            ChatSenderRole senderRole,
+            Long senderId,
+            String content,
+            LocalDateTime createdAt) {
         this.id = id;
         this.sessionId = sessionId;
         this.senderRole = senderRole;

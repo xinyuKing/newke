@@ -7,11 +7,10 @@ import com.shixi.ecommerce.domain.ChatSession;
 import com.shixi.ecommerce.domain.ChatSessionStatus;
 import com.shixi.ecommerce.repository.ChatMessageRepository;
 import com.shixi.ecommerce.repository.ChatSessionRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ChatService {
@@ -72,6 +71,14 @@ public class ChatService {
         return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
     }
 
+    public List<ChatMessage> listMessagesForUser(Long userId, String sessionId) {
+        ChatSession session = getSessionOrThrow(sessionId);
+        if (!session.getUserId().equals(userId)) {
+            throw new BusinessException("Session not owned by user");
+        }
+        return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+    }
+
     @Transactional
     public void closeSession(String sessionId) {
         ChatSession session = getSessionOrThrow(sessionId);
@@ -89,7 +96,8 @@ public class ChatService {
     }
 
     private ChatSession getSessionOrThrow(String sessionId) {
-        return sessionRepository.findBySessionId(sessionId)
+        return sessionRepository
+                .findBySessionId(sessionId)
                 .orElseThrow(() -> new BusinessException("Session not found"));
     }
 }

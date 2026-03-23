@@ -5,22 +5,21 @@ import com.shixi.ecommerce.domain.AgentTaskStatus;
 import com.shixi.ecommerce.domain.SessionState;
 import com.shixi.ecommerce.dto.AgentResult;
 import com.shixi.ecommerce.repository.AgentTaskRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Service;
-
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 @Service
 public class RefundAgentPipeline {
@@ -35,16 +34,17 @@ public class RefundAgentPipeline {
     private final long subAgentTimeoutMs;
     private final Map<RefundTaskType, RefundSubAgent> agentsByTask = new EnumMap<>(RefundTaskType.class);
 
-    public RefundAgentPipeline(RefundMasterAgent masterAgent,
-                               RefundFusionAgent fusionAgent,
-                               RefundFeedbackAgent feedbackAgent,
-                               RefundContextService contextService,
-                               AgentTaskRepository taskRepository,
-                               @Value("${refund.pipeline.max-loop:5}") int maxLoop,
-                               @Value("${refund.pipeline.dedup-ttl-ms:120000}") long dedupTtlMs,
-                               @Value("${refund.pipeline.sub-agent-timeout-ms:4000}") long subAgentTimeoutMs,
-                               @Qualifier("bizExecutor") Executor executor,
-                               List<RefundSubAgent> subAgents) {
+    public RefundAgentPipeline(
+            RefundMasterAgent masterAgent,
+            RefundFusionAgent fusionAgent,
+            RefundFeedbackAgent feedbackAgent,
+            RefundContextService contextService,
+            AgentTaskRepository taskRepository,
+            @Value("${refund.pipeline.max-loop:5}") int maxLoop,
+            @Value("${refund.pipeline.dedup-ttl-ms:120000}") long dedupTtlMs,
+            @Value("${refund.pipeline.sub-agent-timeout-ms:4000}") long subAgentTimeoutMs,
+            @Qualifier("bizExecutor") Executor executor,
+            List<RefundSubAgent> subAgents) {
         this.masterAgent = masterAgent;
         this.fusionAgent = fusionAgent;
         this.feedbackAgent = feedbackAgent;
@@ -82,10 +82,17 @@ public class RefundAgentPipeline {
             long masterStarted = System.nanoTime();
             RefundTaskPlan plan = masterAgent.plan(context);
             long masterDurationMs = elapsedMillis(masterStarted);
-            String masterMeta = buildTaskMeta(plan.getMasterMeta(), AgentTaskStatus.DONE, masterDurationMs, null, false);
+            String masterMeta =
+                    buildTaskMeta(plan.getMasterMeta(), AgentTaskStatus.DONE, masterDurationMs, null, false);
             results.add(new AgentResult(RefundAgentTypes.MASTER, plan.getSummary(), masterMeta));
-            logTask(sessionId, RefundAgentTypes.MASTER, message, plan.getSummary(),
-                    AgentTaskStatus.DONE, masterMeta, masterDurationMs);
+            logTask(
+                    sessionId,
+                    RefundAgentTypes.MASTER,
+                    message,
+                    plan.getSummary(),
+                    AgentTaskStatus.DONE,
+                    masterMeta,
+                    masterDurationMs);
 
             List<RefundSubAgent> subAgents = plan.getTasks().stream()
                     .map(agentsByTask::get)
@@ -96,8 +103,12 @@ public class RefundAgentPipeline {
             for (AgentRun run : runs) {
                 RefundAgentOutput output = run.output();
                 applyOutput(context, output, run.agentType());
-                String meta = buildTaskMeta(output == null ? null : output.getMeta(),
-                        run.status(), run.durationMs(), run.errorMessage(), run.timedOut());
+                String meta = buildTaskMeta(
+                        output == null ? null : output.getMeta(),
+                        run.status(),
+                        run.durationMs(),
+                        run.errorMessage(),
+                        run.timedOut());
                 String outputText = output == null ? "" : output.getMessage();
                 results.add(new AgentResult(run.agentType(), outputText, meta));
                 logTask(sessionId, run.agentType(), message, outputText, run.status(), meta, run.durationMs());
@@ -105,31 +116,48 @@ public class RefundAgentPipeline {
             contextService.save(context);
 
             long fusionStarted = System.nanoTime();
-            FusionResult fusion = fusionAgent.fuse(context, plan, runs.stream()
-                    .map(AgentRun::output).collect(Collectors.toList()));
+            FusionResult fusion = fusionAgent.fuse(
+                    context, plan, runs.stream().map(AgentRun::output).collect(Collectors.toList()));
             long fusionDurationMs = elapsedMillis(fusionStarted);
             String reply = fusion.reply();
             String fusionMeta = buildTaskMeta(fusion.meta(), AgentTaskStatus.DONE, fusionDurationMs, null, false);
             results.add(new AgentResult(RefundAgentTypes.FUSION, reply, fusionMeta));
-            logTask(sessionId, RefundAgentTypes.FUSION, message, reply,
-                    AgentTaskStatus.DONE, fusionMeta, fusionDurationMs);
+            logTask(
+                    sessionId,
+                    RefundAgentTypes.FUSION,
+                    message,
+                    reply,
+                    AgentTaskStatus.DONE,
+                    fusionMeta,
+                    fusionDurationMs);
 
             long feedbackStarted = System.nanoTime();
             FeedbackResult feedback = feedbackAgent.evaluate(context, plan, reply);
             long feedbackDurationMs = elapsedMillis(feedbackStarted);
             String feedbackText = feedback.isOk() ? "OK" : "FAIL: " + feedback.getReason();
             AgentTaskStatus feedbackStatus = feedback.isOk() ? AgentTaskStatus.DONE : AgentTaskStatus.FAILED;
-            String feedbackMeta = buildTaskMeta(feedback.getMeta(), feedbackStatus, feedbackDurationMs,
-                    feedback.isOk() ? null : feedback.getReason(), false);
+            String feedbackMeta = buildTaskMeta(
+                    feedback.getMeta(),
+                    feedbackStatus,
+                    feedbackDurationMs,
+                    feedback.isOk() ? null : feedback.getReason(),
+                    false);
             results.add(new AgentResult(RefundAgentTypes.FEEDBACK, feedbackText, feedbackMeta));
-            logTask(sessionId, RefundAgentTypes.FEEDBACK, message, feedbackText,
-                    feedbackStatus, feedbackMeta, feedbackDurationMs);
+            logTask(
+                    sessionId,
+                    RefundAgentTypes.FEEDBACK,
+                    message,
+                    feedbackText,
+                    feedbackStatus,
+                    feedbackMeta,
+                    feedbackDurationMs);
 
             if (feedback.isOk()) {
                 SessionState finalState = resolveFinalState(plan.getNextState(), context.getDecision());
                 context.setState(finalState);
                 contextService.save(context);
-                if (finalState == SessionState.APPROVED || finalState == SessionState.REJECTED
+                if (finalState == SessionState.APPROVED
+                        || finalState == SessionState.REJECTED
                         || finalState == SessionState.HANDOFF) {
                     contextService.clear(sessionId);
                 }
@@ -144,8 +172,10 @@ public class RefundAgentPipeline {
         contextService.save(context);
         contextService.clear(sessionId);
         String reply = "Refund assistant could not resolve after retries. Transfer to human support.";
-        return new RefundPipelineResult(SessionState.HANDOFF, reply, List.of(
-                new AgentResult(RefundAgentTypes.FEEDBACK, "FAIL: max retries reached", null)));
+        return new RefundPipelineResult(
+                SessionState.HANDOFF,
+                reply,
+                List.of(new AgentResult(RefundAgentTypes.FEEDBACK, "FAIL: max retries reached", null)));
     }
 
     private List<AgentRun> runSubAgents(List<RefundSubAgent> subAgents, RefundContext context) {
@@ -154,14 +184,17 @@ public class RefundAgentPipeline {
         }
         List<CompletableFuture<AgentRun>> futures = new ArrayList<>();
         for (RefundSubAgent agent : subAgents) {
-            CompletableFuture<AgentRun> future = CompletableFuture
-                    .supplyAsync(() -> invokeSubAgent(agent, context), executor)
-                    .completeOnTimeout(AgentRun.timeout(agent.getType(), subAgentTimeoutMs),
-                            subAgentTimeoutMs, TimeUnit.MILLISECONDS)
+            CompletableFuture<AgentRun> future = CompletableFuture.supplyAsync(
+                            () -> invokeSubAgent(agent, context), executor)
+                    .completeOnTimeout(
+                            AgentRun.timeout(agent.getType(), subAgentTimeoutMs),
+                            subAgentTimeoutMs,
+                            TimeUnit.MILLISECONDS)
                     .exceptionally(ex -> AgentRun.failed(agent.getType(), safeErrorMessage(ex), subAgentTimeoutMs));
             futures.add(future);
         }
-        return futures.stream().map(CompletableFuture::join)
+        return futures.stream()
+                .map(CompletableFuture::join)
                 .sorted(Comparator.comparing(AgentRun::agentType))
                 .collect(Collectors.toList());
     }
@@ -233,13 +266,14 @@ public class RefundAgentPipeline {
         return null;
     }
 
-    private void logTask(String sessionId,
-                         String agentType,
-                         String input,
-                         String output,
-                         AgentTaskStatus status,
-                         String meta,
-                         long durationMs) {
+    private void logTask(
+            String sessionId,
+            String agentType,
+            String input,
+            String output,
+            AgentTaskStatus status,
+            String meta,
+            long durationMs) {
         AgentTask task = new AgentTask();
         task.setSessionId(sessionId);
         task.setAgentType(agentType);
@@ -275,11 +309,8 @@ public class RefundAgentPipeline {
         return Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
     }
 
-    private String buildTaskMeta(String sourceMeta,
-                                 AgentTaskStatus status,
-                                 long durationMs,
-                                 String errorMessage,
-                                 boolean timedOut) {
+    private String buildTaskMeta(
+            String sourceMeta, AgentTaskStatus status, long durationMs, String errorMessage, boolean timedOut) {
         List<String> parts = new ArrayList<>();
         if (sourceMeta != null && !sourceMeta.isBlank()) {
             parts.add(sourceMeta);
@@ -321,12 +352,13 @@ public class RefundAgentPipeline {
         return (message == null || message.isBlank()) ? cursor.getClass().getSimpleName() : message;
     }
 
-    private record AgentRun(String agentType,
-                            RefundAgentOutput output,
-                            AgentTaskStatus status,
-                            String errorMessage,
-                            long durationMs,
-                            boolean timedOut) {
+    private record AgentRun(
+            String agentType,
+            RefundAgentOutput output,
+            AgentTaskStatus status,
+            String errorMessage,
+            long durationMs,
+            boolean timedOut) {
         private static AgentRun success(String agentType, RefundAgentOutput output, long durationMs) {
             return new AgentRun(agentType, output, AgentTaskStatus.DONE, null, durationMs, false);
         }
@@ -338,10 +370,7 @@ public class RefundAgentPipeline {
 
         private static AgentRun timeout(String agentType, long timeoutMs) {
             RefundAgentOutput output = new RefundAgentOutput(
-                    "Agent timed out after " + timeoutMs + " ms.",
-                    Map.of(),
-                    null,
-                    "timeout=true");
+                    "Agent timed out after " + timeoutMs + " ms.", Map.of(), null, "timeout=true");
             return new AgentRun(agentType, output, AgentTaskStatus.FAILED, "timeout", timeoutMs, true);
         }
     }

@@ -1,13 +1,21 @@
 package com.shixi.ecommerce.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Lob;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "refund_intent_model", indexes = {
-        @Index(name = "idx_refund_intent_version", columnList = "modelVersion", unique = true)
-})
+@Table(
+        name = "refund_intent_model",
+        indexes = {@Index(name = "idx_refund_intent_version", columnList = "modelVersion", unique = true)})
 public class RefundIntentModelState {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

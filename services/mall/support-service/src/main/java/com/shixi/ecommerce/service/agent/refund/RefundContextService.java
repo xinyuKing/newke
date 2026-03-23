@@ -3,13 +3,12 @@ package com.shixi.ecommerce.service.agent.refund;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.domain.SessionState;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
 
 @Service
 public class RefundContextService {
@@ -32,7 +31,9 @@ public class RefundContextService {
         context.setSessionId(sessionId);
         Map<Object, Object> entries = redisTemplate.opsForHash().entries(CONTEXT_PREFIX + sessionId);
         for (Map.Entry<Object, Object> entry : entries.entrySet()) {
-            if (entry.getKey() != null && entry.getValue() != null && !isMetaKey(entry.getKey().toString())) {
+            if (entry.getKey() != null
+                    && entry.getValue() != null
+                    && !isMetaKey(entry.getKey().toString())) {
                 context.putSlot(entry.getKey().toString(), entry.getValue().toString());
             }
         }
@@ -106,8 +107,7 @@ public class RefundContextService {
             return;
         }
         try {
-            List<String> hints = objectMapper.readValue(value.toString(), new TypeReference<List<String>>() {
-            });
+            List<String> hints = objectMapper.readValue(value.toString(), new TypeReference<List<String>>() {});
             context.replaceFeedbackHints(hints);
         } catch (Exception ignored) {
             context.replaceFeedbackHints(List.of());

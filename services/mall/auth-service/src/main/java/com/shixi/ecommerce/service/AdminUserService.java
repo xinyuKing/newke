@@ -5,10 +5,9 @@ import com.shixi.ecommerce.domain.Role;
 import com.shixi.ecommerce.domain.UserAccount;
 import com.shixi.ecommerce.dto.AdminUserResponse;
 import com.shixi.ecommerce.repository.UserAccountRepository;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
 
 @Service
 public class AdminUserService {
@@ -25,15 +24,13 @@ public class AdminUserService {
     }
 
     public void updateRole(Long userId, Role role) {
-        UserAccount account = repository.findById(userId)
-                .orElseThrow(() -> new BusinessException("User not found"));
+        UserAccount account = repository.findById(userId).orElseThrow(() -> new BusinessException("User not found"));
         account.setRole(role);
         repository.save(account);
     }
 
     public void updateStatus(Long userId, boolean enabled) {
-        UserAccount account = repository.findById(userId)
-                .orElseThrow(() -> new BusinessException("User not found"));
+        UserAccount account = repository.findById(userId).orElseThrow(() -> new BusinessException("User not found"));
         account.setEnabled(enabled);
         repository.save(account);
     }

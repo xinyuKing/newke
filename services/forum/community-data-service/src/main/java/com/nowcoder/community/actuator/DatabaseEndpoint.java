@@ -1,14 +1,13 @@
-﻿package com.nowcoder.community.actuator;
+package com.nowcoder.community.actuator;
 
 import com.nowcoder.community.util.CommunityUtil;
+import java.sql.Connection;
+import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 import org.springframework.stereotype.Component;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
 
 /**
  * 数据库健康检查端点。

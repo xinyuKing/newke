@@ -5,6 +5,10 @@ import com.shixi.ecommerce.config.SearchProperties;
 import com.shixi.ecommerce.domain.Product;
 import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.repository.ProductRepository;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
@@ -14,11 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 商品索引服务，将商品数据写入搜索索引。
@@ -35,10 +34,11 @@ public class ProductIndexService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    public ProductIndexService(ProductRepository productRepository,
-                               SearchProperties searchProperties,
-                               RestTemplate restTemplate,
-                               ObjectMapper objectMapper) {
+    public ProductIndexService(
+            ProductRepository productRepository,
+            SearchProperties searchProperties,
+            RestTemplate restTemplate,
+            ObjectMapper objectMapper) {
         this.productRepository = productRepository;
         this.searchProperties = searchProperties;
         this.restTemplate = restTemplate;
@@ -73,8 +73,14 @@ public class ProductIndexService {
         doc.put("description", product.getDescription());
         doc.put("videoUrl", product.getVideoUrl());
         doc.put("price", product.getPrice());
-        doc.put("status", product.getStatus() == null ? ProductStatus.ACTIVE.name() : product.getStatus().name());
-        doc.put("createdAt", product.getCreatedAt() == null ? null : product.getCreatedAt().toString());
+        doc.put(
+                "status",
+                product.getStatus() == null
+                        ? ProductStatus.ACTIVE.name()
+                        : product.getStatus().name());
+        doc.put(
+                "createdAt",
+                product.getCreatedAt() == null ? null : product.getCreatedAt().toString());
 
         String index = searchProperties.getOpenSearch().getIndex();
         String url = baseUrl + "/" + index + "/_doc/" + productId;
@@ -99,8 +105,7 @@ public class ProductIndexService {
             return;
         }
         String token = Base64.getEncoder()
-                .encodeToString((username + ":" + (password == null ? "" : password))
-                        .getBytes(StandardCharsets.UTF_8));
+                .encodeToString((username + ":" + (password == null ? "" : password)).getBytes(StandardCharsets.UTF_8));
         headers.set(HttpHeaders.AUTHORIZATION, "Basic " + token);
     }
 }

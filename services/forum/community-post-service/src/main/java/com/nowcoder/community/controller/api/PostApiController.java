@@ -17,6 +17,14 @@ import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
 import com.nowcoder.community.util.RedisKeyUtil;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,15 +34,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * 帖子 REST 接口。
@@ -52,14 +51,15 @@ public class PostApiController implements CommunityConstant {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ModerationService moderationService;
 
-    public PostApiController(DiscussPostService discussPostService,
-                             UserClient userClient,
-                             LikeClient likeClient,
-                             CommentService commentService,
-                             HostHolder hostHolder,
-                             EventProducer eventProducer,
-                             RedisTemplate<String, Object> redisTemplate,
-                             ModerationService moderationService) {
+    public PostApiController(
+            DiscussPostService discussPostService,
+            UserClient userClient,
+            LikeClient likeClient,
+            CommentService commentService,
+            HostHolder hostHolder,
+            EventProducer eventProducer,
+            RedisTemplate<String, Object> redisTemplate,
+            ModerationService moderationService) {
         this.discussPostService = discussPostService;
         this.userClient = userClient;
         this.likeClient = likeClient;
@@ -71,9 +71,10 @@ public class PostApiController implements CommunityConstant {
     }
 
     @GetMapping
-    public ApiResponse<Map<String, Object>> list(@RequestParam(defaultValue = "1") int page,
-                                                 @RequestParam(defaultValue = "10") int limit,
-                                                 @RequestParam(defaultValue = "0") int orderMode) {
+    public ApiResponse<Map<String, Object>> list(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "0") int orderMode) {
         int safePage = normalizePage(page);
         int safeLimit = normalizeLimit(limit);
         int safeOrderMode = orderMode == 1 ? 1 : 0;
@@ -114,9 +115,10 @@ public class PostApiController implements CommunityConstant {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<Map<String, Object>> detail(@PathVariable("id") int postId,
-                                                   @RequestParam(defaultValue = "1") int page,
-                                                   @RequestParam(defaultValue = "5") int limit) {
+    public ApiResponse<Map<String, Object>> detail(
+            @PathVariable("id") int postId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "5") int limit) {
         DiscussPost post = discussPostService.findDiscussPostById(postId);
         if (post == null) {
             return ApiResponse.error(404, "post_not_found");
@@ -136,7 +138,8 @@ public class PostApiController implements CommunityConstant {
         List<Comment> replyList = commentService.findCommentsByEntityIds(ENTITY_TYPE_COMMENT, commentIds);
         Map<Integer, List<Comment>> replyMap = new HashMap<>();
         for (Comment reply : replyList) {
-            replyMap.computeIfAbsent(reply.getEntityId(), key -> new ArrayList<>()).add(reply);
+            replyMap.computeIfAbsent(reply.getEntityId(), key -> new ArrayList<>())
+                    .add(reply);
         }
         Map<Integer, Integer> replyCountMap = commentService.findCountByEntityIds(ENTITY_TYPE_COMMENT, commentIds);
 
@@ -158,8 +161,9 @@ public class PostApiController implements CommunityConstant {
             likeEntityIds.add(reply.getId());
         }
         Map<Integer, Long> commentLikeCountMap = loadLikeCountMap(LIKE_TYPE_COMMENT, likeEntityIds);
-        Map<Integer, Integer> commentLikeStatusMap =
-                currentUser == null ? Collections.emptyMap() : loadLikeStatusMap(currentUser.getId(), LIKE_TYPE_COMMENT, likeEntityIds);
+        Map<Integer, Integer> commentLikeStatusMap = currentUser == null
+                ? Collections.emptyMap()
+                : loadLikeStatusMap(currentUser.getId(), LIKE_TYPE_COMMENT, likeEntityIds);
 
         List<Map<String, Object>> commentVoList = new ArrayList<>();
         for (Comment comment : comments) {
@@ -205,7 +209,7 @@ public class PostApiController implements CommunityConstant {
     }
 
     @PostMapping
-    public ApiResponse<Void> add(@RequestBody Map<String, Object> body) {
+    public ApiResponse<Object> add(@RequestBody Map<String, Object> body) {
         User currentUser = hostHolder.getUser();
         if (currentUser == null) {
             return ApiResponse.error(403, "not_login");
@@ -215,7 +219,8 @@ public class PostApiController implements CommunityConstant {
         }
 
         String title = body.get("title") == null ? null : body.get("title").toString();
-        String content = body.get("content") == null ? null : body.get("content").toString();
+        String content =
+                body.get("content") == null ? null : body.get("content").toString();
         String media = toJsonIfNeeded(body.get("media"));
         if (StringUtils.isBlank(title)) {
             return ApiResponse.error(400, "title_empty");
@@ -227,7 +232,11 @@ public class PostApiController implements CommunityConstant {
         ModerationResult moderationResult = moderationService.reviewPost(title, content, media);
         if (!moderationResult.isPass()) {
             Map<String, Object> data = new HashMap<>();
-            data.put("reason", moderationResult.getReasons().isEmpty() ? "内容未通过审核" : moderationResult.getReasons().get(0));
+            data.put(
+                    "reason",
+                    moderationResult.getReasons().isEmpty()
+                            ? "内容未通过审核"
+                            : moderationResult.getReasons().get(0));
             data.put("reasons", moderationResult.getReasons());
             data.put("tags", moderationResult.getTags());
             return ApiResponse.error(422, "moderation_rejected", data);

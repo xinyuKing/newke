@@ -16,7 +16,8 @@ public class RefundIntentTrainResponse {
         this.nonRefundCount = nonRefundCount;
     }
 
-    public RefundIntentTrainResponse(RefundIntentAlgorithm algorithm, int total, int refundCount, int nonRefundCount, double threshold) {
+    public RefundIntentTrainResponse(
+            RefundIntentAlgorithm algorithm, int total, int refundCount, int nonRefundCount, double threshold) {
         this.algorithm = algorithm;
         this.total = total;
         this.refundCount = refundCount;

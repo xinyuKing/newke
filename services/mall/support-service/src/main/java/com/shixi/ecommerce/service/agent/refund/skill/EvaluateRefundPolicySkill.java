@@ -4,10 +4,9 @@ import com.shixi.ecommerce.service.agent.refund.RefundContext;
 import com.shixi.ecommerce.service.agent.refund.RefundDecision;
 import com.shixi.ecommerce.service.agent.refund.RefundReasonType;
 import com.shixi.ecommerce.service.agent.refund.RefundSlots;
-import org.springframework.stereotype.Service;
-
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class EvaluateRefundPolicySkill extends AbstractRefundSkill<RefundSkillOutput> {

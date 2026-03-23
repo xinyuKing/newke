@@ -11,6 +11,11 @@ import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,12 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 用户中心 JSON 接口。
@@ -40,11 +39,12 @@ public class UserApiController implements CommunityConstant {
     private final FollowClient followClient;
     private final PostClient postClient;
 
-    public UserApiController(UserService userService,
-                             HostHolder hostHolder,
-                             LikeClient likeClient,
-                             FollowClient followClient,
-                             PostClient postClient) {
+    public UserApiController(
+            UserService userService,
+            HostHolder hostHolder,
+            LikeClient likeClient,
+            FollowClient followClient,
+            PostClient postClient) {
         this.userService = userService;
         this.hostHolder = hostHolder;
         this.likeClient = likeClient;
@@ -76,9 +76,8 @@ public class UserApiController implements CommunityConstant {
         boolean hasFollowed = false;
         User currentUser = hostHolder.getUser();
         if (currentUser != null) {
-            Boolean followed = ApiResponseUtils.unwrap(
-                    followClient.hasFollowed(currentUser.getId(), ENTITY_TYPE_USER, userId)
-            );
+            Boolean followed =
+                    ApiResponseUtils.unwrap(followClient.hasFollowed(currentUser.getId(), ENTITY_TYPE_USER, userId));
             hasFollowed = Boolean.TRUE.equals(followed);
         }
         data.put("hasFollowed", hasFollowed);
@@ -86,9 +85,10 @@ public class UserApiController implements CommunityConstant {
     }
 
     @GetMapping("/{userId}/posts")
-    public ApiResponse<Map<String, Object>> myPosts(@PathVariable int userId,
-                                                    @RequestParam(defaultValue = "1") int page,
-                                                    @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> myPosts(
+            @PathVariable int userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit) {
         int safePage = normalizePage(page);
         int safeLimit = normalizeLimit(limit);
         int offset = (safePage - 1) * safeLimit;
@@ -132,9 +132,10 @@ public class UserApiController implements CommunityConstant {
     }
 
     @GetMapping("/{userId}/replies")
-    public ApiResponse<Map<String, Object>> myReplies(@PathVariable int userId,
-                                                      @RequestParam(defaultValue = "1") int page,
-                                                      @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> myReplies(
+            @PathVariable int userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit) {
         int safePage = normalizePage(page);
         int safeLimit = normalizeLimit(limit);
         int offset = (safePage - 1) * safeLimit;
@@ -187,8 +188,10 @@ public class UserApiController implements CommunityConstant {
             return ApiResponse.error(400, "invalid_request");
         }
 
-        String oldPassword = body.get("oldPassword") == null ? null : body.get("oldPassword").toString();
-        String newPassword = body.get("newPassword") == null ? null : body.get("newPassword").toString();
+        String oldPassword =
+                body.get("oldPassword") == null ? null : body.get("oldPassword").toString();
+        String newPassword =
+                body.get("newPassword") == null ? null : body.get("newPassword").toString();
         if (StringUtils.isBlank(newPassword)) {
             return ApiResponse.error(1, "new_password_empty");
         }
@@ -210,7 +213,8 @@ public class UserApiController implements CommunityConstant {
             return ApiResponse.error(400, "invalid_request");
         }
 
-        String headerUrl = body.get("headerUrl") == null ? null : body.get("headerUrl").toString();
+        String headerUrl =
+                body.get("headerUrl") == null ? null : body.get("headerUrl").toString();
         if (StringUtils.isBlank(headerUrl)) {
             return ApiResponse.error(1, "header_empty");
         }

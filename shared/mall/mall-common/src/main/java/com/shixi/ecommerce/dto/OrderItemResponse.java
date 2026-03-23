@@ -3,7 +3,7 @@ package com.shixi.ecommerce.dto;
 import java.math.BigDecimal;
 
 /**
- * ¶©µ¥Ã÷Ï¸ÏìÓ¦¡£
+ * Order item response.
  *
  * @author shixi
  * @date 2026-03-20

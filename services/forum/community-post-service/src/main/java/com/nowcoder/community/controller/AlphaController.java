@@ -2,6 +2,17 @@ package com.nowcoder.community.controller;
 
 import com.nowcoder.community.service.AlphaService;
 import com.nowcoder.community.util.CommunityUtil;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Controller;
@@ -14,18 +25,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
-
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Alpha 示例控制器。
@@ -89,8 +88,9 @@ public class AlphaController {
      */
     @GetMapping("/students")
     @ResponseBody
-    public String getStudents(@RequestParam(name = "current", defaultValue = "1") int current,
-                              @RequestParam(name = "limit", defaultValue = "10") int limit) {
+    public String getStudents(
+            @RequestParam(name = "current", defaultValue = "1") int current,
+            @RequestParam(name = "limit", defaultValue = "10") int limit) {
         LOGGER.debug("query students, current={}, limit={}", current, limit);
         return "some students";
     }

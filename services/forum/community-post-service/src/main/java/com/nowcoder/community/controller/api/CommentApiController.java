@@ -13,16 +13,15 @@ import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
 import com.nowcoder.community.util.RedisKeyUtil;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 评论 REST 接口。
@@ -38,12 +37,13 @@ public class CommentApiController implements CommunityConstant {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ModerationService moderationService;
 
-    public CommentApiController(CommentService commentService,
-                                HostHolder hostHolder,
-                                EventProducer eventProducer,
-                                DiscussPostService discussPostService,
-                                RedisTemplate<String, Object> redisTemplate,
-                                ModerationService moderationService) {
+    public CommentApiController(
+            CommentService commentService,
+            HostHolder hostHolder,
+            EventProducer eventProducer,
+            DiscussPostService discussPostService,
+            RedisTemplate<String, Object> redisTemplate,
+            ModerationService moderationService) {
         this.commentService = commentService;
         this.hostHolder = hostHolder;
         this.eventProducer = eventProducer;
@@ -53,7 +53,7 @@ public class CommentApiController implements CommunityConstant {
     }
 
     @PostMapping
-    public ApiResponse<Void> add(@RequestBody Map<String, Object> body) {
+    public ApiResponse<Object> add(@RequestBody Map<String, Object> body) {
         if (hostHolder.getUser() == null) {
             return ApiResponse.error(403, "not_login");
         }
@@ -83,7 +83,11 @@ public class CommentApiController implements CommunityConstant {
         ModerationResult moderationResult = moderationService.reviewComment(content, media);
         if (!moderationResult.isPass()) {
             Map<String, Object> data = new HashMap<>();
-            data.put("reason", moderationResult.getReasons().isEmpty() ? "内容未通过审核" : moderationResult.getReasons().get(0));
+            data.put(
+                    "reason",
+                    moderationResult.getReasons().isEmpty()
+                            ? "内容未通过审核"
+                            : moderationResult.getReasons().get(0));
             data.put("reasons", moderationResult.getReasons());
             data.put("tags", moderationResult.getTags());
             return ApiResponse.error(422, "moderation_rejected", data);

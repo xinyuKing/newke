@@ -9,16 +9,13 @@ import org.springframework.context.annotation.FilterType;
 @ComponentScan(
         basePackages = "com.shixi.ecommerce",
         excludeFilters = {
-                @ComponentScan.Filter(
-                        type = FilterType.REGEX,
-                        pattern = "com\\.shixi\\.ecommerce\\.security\\.JwtAuthFilter"
-                ),
-                @ComponentScan.Filter(
-                        type = FilterType.REGEX,
-                        pattern = "com\\.shixi\\.ecommerce\\.web\\.GlobalExceptionHandler"
-                )
-        }
-)
+            @ComponentScan.Filter(
+                    type = FilterType.REGEX,
+                    pattern = "com\\.shixi\\.ecommerce\\.security\\.JwtAuthFilter"),
+            @ComponentScan.Filter(
+                    type = FilterType.REGEX,
+                    pattern = "com\\.shixi\\.ecommerce\\.web\\.GlobalExceptionHandler")
+        })
 public class GatewayApplication {
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);

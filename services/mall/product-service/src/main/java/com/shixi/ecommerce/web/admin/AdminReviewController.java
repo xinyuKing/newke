@@ -3,11 +3,10 @@ package com.shixi.ecommerce.web.admin;
 import com.shixi.ecommerce.common.ApiResponse;
 import com.shixi.ecommerce.dto.AdminRiskProductResponse;
 import com.shixi.ecommerce.service.AdminReviewService;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/reviews")

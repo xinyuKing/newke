@@ -7,16 +7,24 @@ public class Comment {
     private int userId;
     private int entityType;
     private int entityId;
-    private int targetId;//目标用户id
+    private int targetId; // 目标用户id
     private String content;
     private String media;
     private int status;
     private Date createTime;
 
-    public Comment() {
-    }
+    public Comment() {}
 
-    public Comment(int id, int userId, int entityType, int entityId, int targetId, String content, String media, Date createTime, int status) {
+    public Comment(
+            int id,
+            int userId,
+            int entityType,
+            int entityId,
+            int targetId,
+            String content,
+            String media,
+            Date createTime,
+            int status) {
         this.id = id;
         this.userId = userId;
         this.entityType = entityType;
@@ -102,16 +110,15 @@ public class Comment {
 
     @Override
     public String toString() {
-        return "Comment{" +
-                "id=" + id +
-                ", userId=" + userId +
-                ", entityType=" + entityType +
-                ", entityId=" + entityId +
-                ", targetId=" + targetId +
-                ", content='" + content + '\'' +
-                ", media='" + media + '\'' +
-                ", createTime=" + createTime +
-                ", status=" + status +
-                '}';
+        return "Comment{" + "id="
+                + id + ", userId="
+                + userId + ", entityType="
+                + entityType + ", entityId="
+                + entityId + ", targetId="
+                + targetId + ", content='"
+                + content + '\'' + ", media='"
+                + media + '\'' + ", createTime="
+                + createTime + ", status="
+                + status + '}';
     }
 }

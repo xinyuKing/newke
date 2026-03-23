@@ -9,12 +9,17 @@ import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api")
@@ -65,9 +70,10 @@ public class FollowApiController implements CommunityConstant {
     }
 
     @GetMapping("/users/{userId}/followees")
-    public ApiResponse<Map<String, Object>> followees(@PathVariable int userId,
-                                                      @RequestParam(defaultValue = "1") int page,
-                                                      @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> followees(
+            @PathVariable int userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit) {
         User user = ApiResponseUtils.unwrap(userClient.getUser(userId));
         if (user == null) {
             return ApiResponse.error(404, "user_not_found");
@@ -93,9 +99,10 @@ public class FollowApiController implements CommunityConstant {
     }
 
     @GetMapping("/users/{userId}/followers")
-    public ApiResponse<Map<String, Object>> followers(@PathVariable int userId,
-                                                      @RequestParam(defaultValue = "1") int page,
-                                                      @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> followers(
+            @PathVariable int userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit) {
         User user = ApiResponseUtils.unwrap(userClient.getUser(userId));
         if (user == null) {
             return ApiResponse.error(404, "user_not_found");
@@ -121,21 +128,22 @@ public class FollowApiController implements CommunityConstant {
     }
 
     @GetMapping("/followees/count")
-    public ApiResponse<Long> followeeCount(@RequestParam("userId") int userId,
-                                           @RequestParam("entityType") int entityType) {
+    public ApiResponse<Long> followeeCount(
+            @RequestParam("userId") int userId, @RequestParam("entityType") int entityType) {
         return ApiResponse.success(followService.findFolloweeCount(userId, entityType));
     }
 
     @GetMapping("/followers/count")
-    public ApiResponse<Long> followerCount(@RequestParam("entityType") int entityType,
-                                           @RequestParam("entityId") int entityId) {
+    public ApiResponse<Long> followerCount(
+            @RequestParam("entityType") int entityType, @RequestParam("entityId") int entityId) {
         return ApiResponse.success(followService.findFollowerCount(entityType, entityId));
     }
 
     @GetMapping("/has-followed")
-    public ApiResponse<Boolean> hasFollowed(@RequestParam("userId") int userId,
-                                            @RequestParam("entityType") int entityType,
-                                            @RequestParam("entityId") int entityId) {
+    public ApiResponse<Boolean> hasFollowed(
+            @RequestParam("userId") int userId,
+            @RequestParam("entityType") int entityType,
+            @RequestParam("entityId") int entityId) {
         return ApiResponse.success(followService.hasFollowed(userId, entityType, entityId));
     }
 

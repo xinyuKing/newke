@@ -10,10 +10,15 @@ import com.shixi.ecommerce.dto.ChatSessionResponse;
 import com.shixi.ecommerce.service.CurrentUserService;
 import com.shixi.ecommerce.service.chat.ChatService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/support/chat")
@@ -27,9 +32,11 @@ public class SupportChatController {
     }
 
     @GetMapping("/sessions")
-    public ApiResponse<List<ChatSessionResponse>> listSessions(@RequestParam(required = false) ChatSessionStatus status) {
+    public ApiResponse<List<ChatSessionResponse>> listSessions(
+            @RequestParam(required = false) ChatSessionStatus status) {
         List<ChatSessionResponse> sessions = chatService.listSessions(status).stream()
-                .map(this::toSessionResponse).collect(Collectors.toList());
+                .map(this::toSessionResponse)
+                .collect(Collectors.toList());
         return ApiResponse.ok(sessions);
     }
 
@@ -42,8 +49,9 @@ public class SupportChatController {
 
     @GetMapping("/session/{sessionId}/messages")
     public ApiResponse<List<ChatMessageResponse>> messages(@PathVariable String sessionId) {
-        List<ChatMessageResponse> messages = chatService.listMessages(sessionId)
-                .stream().map(this::toMessageResponse).collect(Collectors.toList());
+        List<ChatMessageResponse> messages = chatService.listMessages(sessionId).stream()
+                .map(this::toMessageResponse)
+                .collect(Collectors.toList());
         return ApiResponse.ok(messages);
     }
 
@@ -59,8 +67,7 @@ public class SupportChatController {
                 session.getUserId(),
                 session.getSupportId(),
                 session.getStatus(),
-                session.getUpdatedAt()
-        );
+                session.getUpdatedAt());
     }
 
     private ChatMessageResponse toMessageResponse(ChatMessage message) {
@@ -70,7 +77,6 @@ public class SupportChatController {
                 message.getSenderRole(),
                 message.getSenderId(),
                 message.getContent(),
-                message.getCreatedAt()
-        );
+                message.getCreatedAt());
     }
 }

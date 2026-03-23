@@ -20,8 +20,7 @@ public class InventoryClient {
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
-    public InventoryClient(RestTemplate restTemplate,
-                           @Value("${inventory.service.url}") String baseUrl) {
+    public InventoryClient(RestTemplate restTemplate, @Value("${inventory.service.url}") String baseUrl) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;
     }

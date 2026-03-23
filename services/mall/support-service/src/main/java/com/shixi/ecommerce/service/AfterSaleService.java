@@ -6,11 +6,11 @@ import com.shixi.ecommerce.domain.AfterSaleTicket;
 import com.shixi.ecommerce.dto.AfterSaleCreateRequest;
 import com.shixi.ecommerce.dto.AfterSaleResponse;
 import com.shixi.ecommerce.repository.AfterSaleTicketRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.shixi.ecommerce.service.order.OrderAccessService;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 鍞悗鏈嶅姟锛岃礋璐ｉ€€璐?閫€娆剧敵璇峰強鐘舵€佹祦杞€? *
@@ -20,9 +20,11 @@ import java.util.stream.Collectors;
 @Service
 public class AfterSaleService {
     private final AfterSaleTicketRepository repository;
+    private final OrderAccessService orderAccessService;
 
-    public AfterSaleService(AfterSaleTicketRepository repository) {
+    public AfterSaleService(AfterSaleTicketRepository repository, OrderAccessService orderAccessService) {
         this.repository = repository;
+        this.orderAccessService = orderAccessService;
     }
 
     /**
@@ -33,6 +35,7 @@ public class AfterSaleService {
      */
     @Transactional
     public AfterSaleResponse create(Long userId, AfterSaleCreateRequest request) {
+        orderAccessService.requireEligibleAfterSaleOrder(userId, request.getOrderNo());
         repository.findByOrderNo(request.getOrderNo()).ifPresent(existing -> {
             throw new BusinessException("After-sale already exists");
         });
@@ -76,8 +79,8 @@ public class AfterSaleService {
      * @param status 鐘舵€?     * @return 鏇存柊鍚庣殑鍞悗鍗?     */
     @Transactional
     public AfterSaleResponse updateStatus(Long id, AfterSaleStatus status) {
-        AfterSaleTicket ticket = repository.findById(id)
-                .orElseThrow(() -> new BusinessException("After-sale not found"));
+        AfterSaleTicket ticket =
+                repository.findById(id).orElseThrow(() -> new BusinessException("After-sale not found"));
         ticket.setStatus(status);
         repository.save(ticket);
         return toResponse(ticket);
@@ -85,11 +88,6 @@ public class AfterSaleService {
 
     private AfterSaleResponse toResponse(AfterSaleTicket ticket) {
         return new AfterSaleResponse(
-                ticket.getId(),
-                ticket.getOrderNo(),
-                ticket.getReason(),
-                ticket.getStatus(),
-                ticket.getCreatedAt()
-        );
+                ticket.getId(), ticket.getOrderNo(), ticket.getReason(), ticket.getStatus(), ticket.getCreatedAt());
     }
 }

@@ -16,8 +16,7 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final CartRateLimitFilter cartRateLimitFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter,
-                          CartRateLimitFilter cartRateLimitFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, CartRateLimitFilter cartRateLimitFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.cartRateLimitFilter = cartRateLimitFilter;
     }
@@ -26,10 +25,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/user/**", "/actuator/health").hasRole("USER")
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/actuator/health")
+                        .permitAll()
+                        .requestMatchers("/api/user/**")
+                        .hasRole("USER")
+                        .anyRequest()
+                        .authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(cartRateLimitFilter, JwtAuthFilter.class);
         return http.build();

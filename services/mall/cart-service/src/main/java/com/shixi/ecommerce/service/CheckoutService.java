@@ -5,11 +5,10 @@ import com.shixi.ecommerce.domain.CartItem;
 import com.shixi.ecommerce.dto.CreateOrderItemsRequest;
 import com.shixi.ecommerce.dto.CreateOrderResponse;
 import com.shixi.ecommerce.dto.OrderLineItem;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 购物车结算服务，负责将购物车条目转换为订单。

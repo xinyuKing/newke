@@ -1,7 +1,10 @@
 package com.shixi.ecommerce.service.agent.refund.data;
 
+import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.dto.TrackingResponse;
+import java.time.Duration;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,9 +14,6 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
-import java.util.Optional;
-
 @Service
 public class RefundOrderDataClient {
     private static final Logger logger = LoggerFactory.getLogger(RefundOrderDataClient.class);
@@ -21,9 +21,10 @@ public class RefundOrderDataClient {
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
-    public RefundOrderDataClient(RestTemplateBuilder restTemplateBuilder,
-                                 @Value("${order.service.url:http://localhost:18084}") String baseUrl,
-                                 @Value("${refund.order-data.timeout-ms:3000}") long timeoutMs) {
+    public RefundOrderDataClient(
+            RestTemplateBuilder restTemplateBuilder,
+            @Value("${order.service.url:http://localhost:18084}") String baseUrl,
+            @Value("${refund.order-data.timeout-ms:3000}") long timeoutMs) {
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(Math.max(500L, timeoutMs)))
                 .setReadTimeout(Duration.ofMillis(Math.max(500L, timeoutMs)))
@@ -33,6 +34,14 @@ public class RefundOrderDataClient {
 
     public Optional<OrderRefundSnapshotResponse> getRefundSnapshot(String orderNo) {
         return getForObject("/internal/orders/{orderNo}/refund-snapshot", OrderRefundSnapshotResponse.class, orderNo);
+    }
+
+    public OrderRefundSnapshotResponse requireRefundSnapshot(String orderNo) {
+        return requireForObject(
+                "/internal/orders/{orderNo}/refund-snapshot",
+                OrderRefundSnapshotResponse.class,
+                "Order not found",
+                orderNo);
     }
 
     public Optional<TrackingResponse> getTracking(String orderNo) {
@@ -54,6 +63,28 @@ public class RefundOrderDataClient {
         } catch (RestClientException ex) {
             logger.warn("refund order data request failed for path {}: {}", path, ex.getMessage());
             return Optional.empty();
+        }
+    }
+
+    private <T> T requireForObject(String path, Class<T> type, String notFoundMessage, Object... uriVariables) {
+        if (baseUrl.isBlank()) {
+            throw new BusinessException("Order service base URL is not configured");
+        }
+        try {
+            T response = restTemplate.getForObject(baseUrl + path, type, uriVariables);
+            if (response == null) {
+                throw new BusinessException(notFoundMessage);
+            }
+            return response;
+        } catch (HttpStatusCodeException ex) {
+            if (ex.getStatusCode().is4xxClientError()) {
+                throw new BusinessException(notFoundMessage);
+            }
+            logger.warn("refund order data request failed for path {}: {}", path, ex.getMessage());
+            throw new BusinessException("Order service unavailable");
+        } catch (RestClientException ex) {
+            logger.warn("refund order data request failed for path {}: {}", path, ex.getMessage());
+            throw new BusinessException("Order service unavailable");
         }
     }
 

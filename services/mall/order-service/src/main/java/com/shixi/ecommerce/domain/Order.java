@@ -1,16 +1,28 @@
 package com.shixi.ecommerce.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "orders", indexes = {
-        @Index(name = "idx_order_no", columnList = "orderNo", unique = true),
-        @Index(name = "idx_user_id", columnList = "userId"),
-        @Index(name = "idx_order_user_status_created", columnList = "userId,status,createdAt")
-})
+@Table(
+        name = "orders",
+        indexes = {
+            @Index(name = "idx_order_no", columnList = "orderNo", unique = true),
+            @Index(name = "idx_user_id", columnList = "userId"),
+            @Index(name = "idx_order_user_status_created", columnList = "userId,status,createdAt")
+        })
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,9 +1,8 @@
 package com.shixi.ecommerce.service.agent.refund;
 
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RefundTokenizer {

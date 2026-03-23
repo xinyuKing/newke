@@ -5,11 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public class UserPurchaseRequest {
-    @NotNull
-    private Long skuId;
+    @NotNull private Long skuId;
 
-    @NotNull
-    @Min(1)
+    @NotNull @Min(1)
     private Integer quantity;
 
     @NotBlank

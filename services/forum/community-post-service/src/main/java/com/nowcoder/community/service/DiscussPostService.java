@@ -6,16 +6,15 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.nowcoder.community.dao.DiscussPostMapper;
 import com.nowcoder.community.entity.DiscussPost;
 import com.nowcoder.community.util.SensitiveFilter;
+import jakarta.annotation.PostConstruct;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
-
-import jakarta.annotation.PostConstruct;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 帖子领域服务。
@@ -40,10 +39,11 @@ public class DiscussPostService {
     private LoadingCache<String, List<DiscussPost>> postListCache;
     private LoadingCache<Integer, Integer> postRowsCache;
 
-    public DiscussPostService(DiscussPostMapper discussPostMapper,
-                              SensitiveFilter sensitiveFilter,
-                              @Value("${caffeine.posts.max-size}") int maxSize,
-                              @Value("${caffeine.posts.expire-seconds}") int expireSeconds) {
+    public DiscussPostService(
+            DiscussPostMapper discussPostMapper,
+            SensitiveFilter sensitiveFilter,
+            @Value("${caffeine.posts.max-size}") int maxSize,
+            @Value("${caffeine.posts.expire-seconds}") int expireSeconds) {
         this.discussPostMapper = discussPostMapper;
         this.sensitiveFilter = sensitiveFilter;
         this.maxSize = maxSize;
@@ -245,6 +245,6 @@ public class DiscussPostService {
         if (params.length != 2) {
             throw new IllegalArgumentException("帖子缓存参数格式错误");
         }
-        return new int[]{Integer.parseInt(params[0]), Integer.parseInt(params[1])};
+        return new int[] {Integer.parseInt(params[0]), Integer.parseInt(params[1])};
     }
 }

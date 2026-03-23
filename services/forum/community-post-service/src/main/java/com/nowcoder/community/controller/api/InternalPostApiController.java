@@ -6,6 +6,7 @@ import com.nowcoder.community.service.CommentService;
 import com.nowcoder.community.service.DiscussPostService;
 import com.nowcoder.community.service.ElasticsearchService;
 import com.nowcoder.community.util.ApiResponse;
+import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,8 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * 面向内部服务的帖子查询与搜索索引接口。
@@ -27,9 +26,10 @@ public class InternalPostApiController {
     private final CommentService commentService;
     private final ElasticsearchService elasticsearchService;
 
-    public InternalPostApiController(DiscussPostService discussPostService,
-                                     CommentService commentService,
-                                     ElasticsearchService elasticsearchService) {
+    public InternalPostApiController(
+            DiscussPostService discussPostService,
+            CommentService commentService,
+            ElasticsearchService elasticsearchService) {
         this.discussPostService = discussPostService;
         this.commentService = commentService;
         this.elasticsearchService = elasticsearchService;
@@ -45,9 +45,8 @@ public class InternalPostApiController {
     }
 
     @GetMapping("/posts/user/{userId}")
-    public ApiResponse<List<DiscussPost>> listPostsByUser(@PathVariable("userId") int userId,
-                                                          @RequestParam("offset") int offset,
-                                                          @RequestParam("limit") int limit) {
+    public ApiResponse<List<DiscussPost>> listPostsByUser(
+            @PathVariable("userId") int userId, @RequestParam("offset") int offset, @RequestParam("limit") int limit) {
         return ApiResponse.success(discussPostService.findDiscussPostByUserId(userId, offset, limit));
     }
 
@@ -57,9 +56,8 @@ public class InternalPostApiController {
     }
 
     @GetMapping("/comments/user/{userId}")
-    public ApiResponse<List<Comment>> listCommentsByUser(@PathVariable("userId") int userId,
-                                                         @RequestParam("offset") int offset,
-                                                         @RequestParam("limit") int limit) {
+    public ApiResponse<List<Comment>> listCommentsByUser(
+            @PathVariable("userId") int userId, @RequestParam("offset") int offset, @RequestParam("limit") int limit) {
         return ApiResponse.success(commentService.findCommentsByUserId(userId, offset, limit));
     }
 

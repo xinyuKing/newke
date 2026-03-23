@@ -9,6 +9,10 @@ import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
 import com.nowcoder.community.util.RedisKeyUtil;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,11 +21,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 面向前后端分离场景的论坛会话接口。
@@ -36,9 +35,8 @@ public class SessionApiController implements CommunityConstant {
     private final RedisTemplate<String, Object> redisTemplate;
     private final HostHolder hostHolder;
 
-    public SessionApiController(UserService userService,
-                                RedisTemplate<String, Object> redisTemplate,
-                                HostHolder hostHolder) {
+    public SessionApiController(
+            UserService userService, RedisTemplate<String, Object> redisTemplate, HostHolder hostHolder) {
         this.userService = userService;
         this.redisTemplate = redisTemplate;
         this.hostHolder = hostHolder;
@@ -53,9 +51,10 @@ public class SessionApiController implements CommunityConstant {
      * @return 登录结果
      */
     @PostMapping("/api/session/login")
-    public ApiResponse<Object> login(@RequestBody SessionLoginRequest request,
-                                     HttpServletResponse response,
-                                     @CookieValue(value = "kaptchaOwner", required = false) String kaptchaOwner) {
+    public ApiResponse<Object> login(
+            @RequestBody SessionLoginRequest request,
+            HttpServletResponse response,
+            @CookieValue(value = "kaptchaOwner", required = false) String kaptchaOwner) {
         if (request == null) {
             return ApiResponse.error(400, "invalid_request");
         }
@@ -76,11 +75,8 @@ public class SessionApiController implements CommunityConstant {
         }
 
         int expiredSeconds = request.isRememberme() ? REMEMBER_EXPIRED_SECONDS : DEFAULT_EXPIRED_SECONDS;
-        Map<String, Object> loginResult = userService.login(
-                request.getUsername(),
-                request.getPassword(),
-                expiredSeconds
-        );
+        Map<String, Object> loginResult =
+                userService.login(request.getUsername(), request.getPassword(), expiredSeconds);
         if (!loginResult.containsKey("ticket")) {
             return ApiResponse.error(1, "login_failed", loginResult);
         }
@@ -140,8 +136,8 @@ public class SessionApiController implements CommunityConstant {
      * @return 注销结果
      */
     @PostMapping("/api/session/logout")
-    public ApiResponse<Void> logout(@CookieValue(value = "ticket", required = false) String ticket,
-                                    HttpServletResponse response) {
+    public ApiResponse<Void> logout(
+            @CookieValue(value = "ticket", required = false) String ticket, HttpServletResponse response) {
         if (StringUtils.isNotBlank(ticket)) {
             userService.logout(ticket);
         }
@@ -170,7 +166,6 @@ public class SessionApiController implements CommunityConstant {
                 user.getType(),
                 user.getStatus(),
                 user.getEmail(),
-                user.getHeaderUrl()
-        );
+                user.getHeaderUrl());
     }
 }

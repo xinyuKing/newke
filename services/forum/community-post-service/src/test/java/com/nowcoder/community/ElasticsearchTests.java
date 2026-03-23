@@ -63,13 +63,7 @@ public class ElasticsearchTests {
                 PageRequest.of(
                         0,
                         10,
-                        Sort.by(
-                                Sort.Order.desc("type"),
-                                Sort.Order.desc("score"),
-                                Sort.Order.desc("createTime")
-                        )
-                )
-        );
+                        Sort.by(Sort.Order.desc("type"), Sort.Order.desc("score"), Sort.Order.desc("createTime"))));
 
         System.out.println(page.getTotalElements());
         System.out.println(page.getTotalPages());

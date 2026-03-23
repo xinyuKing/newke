@@ -8,15 +8,6 @@ import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.CommunityUtil;
 import com.nowcoder.community.util.MailClient;
 import com.nowcoder.community.util.RedisKeyUtil;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -26,6 +17,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 /**
  * 论坛用户核心领域服务。
@@ -58,12 +57,13 @@ public class UserService implements CommunityConstant {
      */
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public UserService(UserMapper userMapper,
-                       MailClient mailClient,
-                       TemplateEngine templateEngine,
-                       RedisTemplate<String, Object> redisTemplate,
-                       @Value("${community.path.domain}") String domain,
-                       @Value("${server.servlet.context-path}") String contextPath) {
+    public UserService(
+            UserMapper userMapper,
+            MailClient mailClient,
+            TemplateEngine templateEngine,
+            RedisTemplate<String, Object> redisTemplate,
+            @Value("${community.path.domain}") String domain,
+            @Value("${server.servlet.context-path}") String contextPath) {
         this.userMapper = userMapper;
         this.mailClient = mailClient;
         this.templateEngine = templateEngine;
@@ -377,12 +377,13 @@ public class UserService implements CommunityConstant {
             if (dbUsers != null) {
                 for (User dbUser : dbUsers) {
                     result.put(dbUser.getId(), dbUser);
-                    redisTemplate.opsForValue().set(
-                            RedisKeyUtil.getUserKey(dbUser.getId()),
-                            dbUser,
-                            USER_CACHE_TTL_SECONDS,
-                            TimeUnit.SECONDS
-                    );
+                    redisTemplate
+                            .opsForValue()
+                            .set(
+                                    RedisKeyUtil.getUserKey(dbUser.getId()),
+                                    dbUser,
+                                    USER_CACHE_TTL_SECONDS,
+                                    TimeUnit.SECONDS);
                 }
             }
         }
@@ -411,12 +412,9 @@ public class UserService implements CommunityConstant {
         if (user == null) {
             return null;
         }
-        redisTemplate.opsForValue().set(
-                RedisKeyUtil.getUserKey(userId),
-                user,
-                USER_CACHE_TTL_SECONDS,
-                TimeUnit.SECONDS
-        );
+        redisTemplate
+                .opsForValue()
+                .set(RedisKeyUtil.getUserKey(userId), user, USER_CACHE_TTL_SECONDS, TimeUnit.SECONDS);
         return user;
     }
 
@@ -522,7 +520,9 @@ public class UserService implements CommunityConstant {
      * @return 头像 URL
      */
     private String generateRandomHeaderUrl() {
-        return String.format("https://images.nowcoder.com/head/%dt.png", ThreadLocalRandom.current().nextInt(1000));
+        return String.format(
+                "https://images.nowcoder.com/head/%dt.png",
+                ThreadLocalRandom.current().nextInt(1000));
     }
 
     /**
@@ -546,18 +546,16 @@ public class UserService implements CommunityConstant {
      * @param expiredSeconds 凭证有效期（秒）
      */
     private void cacheLoginTicket(LoginTicket loginTicket, int expiredSeconds) {
-        redisTemplate.opsForValue().set(
-                RedisKeyUtil.getTicketKey(loginTicket.getTicket()),
-                loginTicket,
-                expiredSeconds,
-                TimeUnit.SECONDS
-        );
-        redisTemplate.opsForValue().set(
-                RedisKeyUtil.getUserTicketKey(loginTicket.getUserId()),
-                loginTicket.getTicket(),
-                expiredSeconds,
-                TimeUnit.SECONDS
-        );
+        redisTemplate
+                .opsForValue()
+                .set(RedisKeyUtil.getTicketKey(loginTicket.getTicket()), loginTicket, expiredSeconds, TimeUnit.SECONDS);
+        redisTemplate
+                .opsForValue()
+                .set(
+                        RedisKeyUtil.getUserTicketKey(loginTicket.getUserId()),
+                        loginTicket.getTicket(),
+                        expiredSeconds,
+                        TimeUnit.SECONDS);
     }
 
     /**

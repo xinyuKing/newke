@@ -5,12 +5,11 @@ import com.shixi.ecommerce.domain.Review;
 import com.shixi.ecommerce.dto.ReviewSummaryResponse;
 import com.shixi.ecommerce.repository.ProductReviewSummaryRepository;
 import com.shixi.ecommerce.repository.ReviewRepository;
+import java.util.List;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
  * 评价摘要服务，提供摘要生成与缓存读取。
@@ -24,9 +23,10 @@ public class ReviewSummaryService {
     private final ProductReviewSummaryRepository summaryRepository;
     private final ReviewSummaryBuilder summaryBuilder;
 
-    public ReviewSummaryService(ReviewRepository reviewRepository,
-                                ProductReviewSummaryRepository summaryRepository,
-                                ReviewSummaryBuilder summaryBuilder) {
+    public ReviewSummaryService(
+            ReviewRepository reviewRepository,
+            ProductReviewSummaryRepository summaryRepository,
+            ReviewSummaryBuilder summaryBuilder) {
         this.reviewRepository = reviewRepository;
         this.summaryRepository = summaryRepository;
         this.summaryBuilder = summaryBuilder;
@@ -45,7 +45,8 @@ public class ReviewSummaryService {
         }
         List<Review> reviews = reviewRepository.findTop50ByProductIdOrderByCreatedAtDesc(productId);
         String summary = summaryBuilder.buildSummary(productId, reviews);
-        ProductReviewSummary entity = summaryRepository.findByProductId(productId).orElseGet(ProductReviewSummary::new);
+        ProductReviewSummary entity =
+                summaryRepository.findByProductId(productId).orElseGet(ProductReviewSummary::new);
         entity.setProductId(productId);
         entity.setReviewCount(total);
         entity.setSummary(summary);
@@ -61,8 +62,10 @@ public class ReviewSummaryService {
     @Cacheable(cacheNames = "reviewSummary", key = "#productId")
     @Transactional
     public ReviewSummaryResponse getSummary(Long productId) {
-        return summaryRepository.findByProductId(productId)
-                .map(entity -> new ReviewSummaryResponse(entity.getProductId(), entity.getReviewCount(), entity.getSummary()))
+        return summaryRepository
+                .findByProductId(productId)
+                .map(entity ->
+                        new ReviewSummaryResponse(entity.getProductId(), entity.getReviewCount(), entity.getSummary()))
                 .orElseGet(() -> {
                     long total = reviewRepository.countByProductId(productId);
                     List<Review> reviews = reviewRepository.findTop50ByProductIdOrderByCreatedAtDesc(productId);
@@ -74,8 +77,10 @@ public class ReviewSummaryService {
                     try {
                         summaryRepository.save(entity);
                     } catch (DataIntegrityViolationException ex) {
-                        return summaryRepository.findByProductId(productId)
-                                .map(existing -> new ReviewSummaryResponse(existing.getProductId(), existing.getReviewCount(), existing.getSummary()))
+                        return summaryRepository
+                                .findByProductId(productId)
+                                .map(existing -> new ReviewSummaryResponse(
+                                        existing.getProductId(), existing.getReviewCount(), existing.getSummary()))
                                 .orElseGet(() -> new ReviewSummaryResponse(productId, total, summary));
                     }
                     return new ReviewSummaryResponse(productId, total, summary);

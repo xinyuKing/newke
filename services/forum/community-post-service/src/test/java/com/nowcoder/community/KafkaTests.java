@@ -19,33 +19,33 @@ public class KafkaTests {
     private KafkaProducer kafkaProducer;
 
     @Test
-    public void testKafka(){
-        kafkaProducer.sendMessage("test","你好吗？");
-        kafkaProducer.sendMessage("test","在吗？");
+    public void testKafka() {
+        kafkaProducer.sendMessage("test", "你好吗？");
+        kafkaProducer.sendMessage("test", "在吗？");
         try {
-            Thread.sleep(1000*10);
+            Thread.sleep(1000 * 10);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-//        kafkaConsumer.handleMessage();
+        //        kafkaConsumer.handleMessage();
     }
 }
 
 @Component
-class KafkaProducer{
+class KafkaProducer {
     @Autowired
     private KafkaTemplate kafkaTemplate;
 
-    public void sendMessage(String topic,String content){
-        kafkaTemplate.send(topic,content);
+    public void sendMessage(String topic, String content) {
+        kafkaTemplate.send(topic, content);
     }
 }
 
 @Component
-class KafkaConsumer{
+class KafkaConsumer {
 
-    @KafkaListener(topics={"test"})
-    public void handleMessage(ConsumerRecord record){
+    @KafkaListener(topics = {"test"})
+    public void handleMessage(ConsumerRecord record) {
         System.out.println(record.value());
     }
 }

@@ -9,7 +9,6 @@ import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-
 import java.time.LocalDateTime;
 
 /**
@@ -19,10 +18,12 @@ import java.time.LocalDateTime;
  * @date 2026-03-20
  */
 @Entity
-@Table(name = "user_address", indexes = {
-        @Index(name = "idx_user_address_user", columnList = "user_id"),
-        @Index(name = "idx_user_address_user_default", columnList = "user_id,is_default")
-})
+@Table(
+        name = "user_address",
+        indexes = {
+            @Index(name = "idx_user_address_user", columnList = "user_id"),
+            @Index(name = "idx_user_address_user_default", columnList = "user_id,is_default")
+        })
 public class UserAddress {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

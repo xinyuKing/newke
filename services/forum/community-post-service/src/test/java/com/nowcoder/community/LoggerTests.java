@@ -1,6 +1,5 @@
 package com.nowcoder.community;
 
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
@@ -13,11 +12,11 @@ import org.springframework.test.context.junit4.SpringRunner;
 @SpringBootTest
 @ContextConfiguration(classes = PostServiceApplication.class)
 public class LoggerTests {
-    private static final Logger logger= LoggerFactory.getLogger(LoggerTests.class);
+    private static final Logger logger = LoggerFactory.getLogger(LoggerTests.class);
 
     @Test
-    public void testLogger(){
-        //1
+    public void testLogger() {
+        // 1
         System.out.println(logger.getName());
 
         logger.debug("debug log");

@@ -10,11 +10,10 @@ import com.shixi.ecommerce.integration.CommunityAuthUser;
 import com.shixi.ecommerce.integration.CommunityUserClient;
 import com.shixi.ecommerce.repository.UserAccountRepository;
 import com.shixi.ecommerce.security.JwtTokenProvider;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 /**
  * Coordinates authentication between the forum user center and the mall auth module.
@@ -30,10 +29,11 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final CommunityUserClient communityUserClient;
 
-    public AuthService(UserAccountRepository repository,
-                       PasswordEncoder passwordEncoder,
-                       JwtTokenProvider jwtTokenProvider,
-                       CommunityUserClient communityUserClient) {
+    public AuthService(
+            UserAccountRepository repository,
+            PasswordEncoder passwordEncoder,
+            JwtTokenProvider jwtTokenProvider,
+            CommunityUserClient communityUserClient) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
@@ -53,7 +53,8 @@ public class AuthService {
         if (request.getRole() != Role.USER) {
             throw new BusinessException("Only USER registration is allowed");
         }
-        CommunityAuthUser communityUser = communityUserClient.register(request.getUsername(), request.getPassword(), null);
+        CommunityAuthUser communityUser =
+                communityUserClient.register(request.getUsername(), request.getPassword(), null);
         upsertLocalAccount(communityUser, request.getPassword());
     }
 
@@ -93,7 +94,8 @@ public class AuthService {
         if (communityUser == null) {
             throw new BusinessException("Community user not found");
         }
-        Long communityId = communityUser.getId() == null ? null : communityUser.getId().longValue();
+        Long communityId =
+                communityUser.getId() == null ? null : communityUser.getId().longValue();
         if (communityId == null) {
             throw new BusinessException("Community user id missing");
         }
@@ -101,7 +103,8 @@ public class AuthService {
         if (account == null) {
             // Reject a conflicting username mapping to prevent one mall account from pointing to
             // a different forum user ID.
-            UserAccount byUsername = repository.findByUsername(communityUser.getUsername()).orElse(null);
+            UserAccount byUsername =
+                    repository.findByUsername(communityUser.getUsername()).orElse(null);
             if (byUsername != null && !Objects.equals(byUsername.getId(), communityId)) {
                 throw new BusinessException("Username already mapped to another user");
             }

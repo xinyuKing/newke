@@ -11,13 +11,14 @@ public class MerchantAnalysisResponse {
     private List<String> riskProducts;
     private String summary;
 
-    public MerchantAnalysisResponse(Long merchantId,
-                                    long productCount,
-                                    long activeProductCount,
-                                    long totalReviews,
-                                    double avgRating,
-                                    List<String> riskProducts,
-                                    String summary) {
+    public MerchantAnalysisResponse(
+            Long merchantId,
+            long productCount,
+            long activeProductCount,
+            long totalReviews,
+            double avgRating,
+            List<String> riskProducts,
+            String summary) {
         this.merchantId = merchantId;
         this.productCount = productCount;
         this.activeProductCount = activeProductCount;

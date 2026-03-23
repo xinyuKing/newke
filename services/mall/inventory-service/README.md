@@ -1,4 +1,4 @@
-﻿# 库存服务（inventory-service）
+# 库存服务（inventory-service）
 
 ## 功能概述
 提供库存初始化、扣减与释放，支持批量接口。库存扣减使用 Redis + Lua 脚本确保并发一致性，批量扣减通过单次 Lua 合并减少 Redis 往返。

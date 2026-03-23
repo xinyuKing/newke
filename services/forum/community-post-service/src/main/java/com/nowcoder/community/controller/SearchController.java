@@ -8,12 +8,6 @@ import com.nowcoder.community.entity.User;
 import com.nowcoder.community.service.ElasticsearchService;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.domain.Page;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,6 +15,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
 
 /**
  * 论坛搜索页控制器。
@@ -32,9 +30,7 @@ public class SearchController implements CommunityConstant {
     private final UserClient userClient;
     private final LikeClient likeClient;
 
-    public SearchController(ElasticsearchService elasticsearchService,
-                            UserClient userClient,
-                            LikeClient likeClient) {
+    public SearchController(ElasticsearchService elasticsearchService, UserClient userClient, LikeClient likeClient) {
         this.elasticsearchService = elasticsearchService;
         this.userClient = userClient;
         this.likeClient = likeClient;
@@ -51,10 +47,10 @@ public class SearchController implements CommunityConstant {
     @GetMapping("/search")
     public String search(String keyword, Page page, Model model) {
         String trimmedKeyword = StringUtils.trimToEmpty(keyword);
-        Page<DiscussPost> searchResult =
+        org.springframework.data.domain.Page<DiscussPost> searchResult =
                 elasticsearchService.searchDiscussPost(trimmedKeyword, page.getCurrent() - 1, page.getLimit());
         if (searchResult == null) {
-            searchResult = Page.empty();
+            searchResult = org.springframework.data.domain.Page.empty();
         }
 
         Set<Integer> userIds = new LinkedHashSet<>();

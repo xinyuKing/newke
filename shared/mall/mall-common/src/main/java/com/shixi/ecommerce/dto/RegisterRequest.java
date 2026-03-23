@@ -11,8 +11,7 @@ public class RegisterRequest {
     @NotBlank
     private String password;
 
-    @NotNull
-    private Role role;
+    @NotNull private Role role;
 
     public String getUsername() {
         return username;

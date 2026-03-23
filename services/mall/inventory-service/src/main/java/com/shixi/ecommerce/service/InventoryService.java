@@ -4,13 +4,6 @@ import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.domain.Inventory;
 import com.shixi.ecommerce.dto.InventoryDeductRequest;
 import com.shixi.ecommerce.repository.InventoryRepository;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +12,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 库存核心服务，支持库存初始化、扣减、释放与批量操作。
@@ -38,11 +37,12 @@ public class InventoryService {
     private final DefaultRedisScript<Long> inventoryDeductBatchScript;
     private final Duration stockLockTtl;
 
-    public InventoryService(InventoryRepository inventoryRepository,
-                            StringRedisTemplate redisTemplate,
-                            @Qualifier("inventoryDeductScript") DefaultRedisScript<Long> inventoryDeductScript,
-                            @Qualifier("inventoryDeductBatchScript") DefaultRedisScript<Long> inventoryDeductBatchScript,
-                            @Value("${inventory.stock.lock-ttl:5s}") Duration stockLockTtl) {
+    public InventoryService(
+            InventoryRepository inventoryRepository,
+            StringRedisTemplate redisTemplate,
+            @Qualifier("inventoryDeductScript") DefaultRedisScript<Long> inventoryDeductScript,
+            @Qualifier("inventoryDeductBatchScript") DefaultRedisScript<Long> inventoryDeductBatchScript,
+            @Value("${inventory.stock.lock-ttl:5s}") Duration stockLockTtl) {
         this.inventoryRepository = inventoryRepository;
         this.redisTemplate = redisTemplate;
         this.inventoryDeductScript = inventoryDeductScript;

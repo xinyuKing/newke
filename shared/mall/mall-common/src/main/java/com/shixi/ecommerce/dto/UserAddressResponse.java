@@ -22,18 +22,19 @@ public class UserAddressResponse {
     private Boolean isDefault;
     private LocalDateTime createdAt;
 
-    public UserAddressResponse(Long id,
-                               Long userId,
-                               String receiverName,
-                               String receiverPhone,
-                               String province,
-                               String city,
-                               String district,
-                               String detailAddress,
-                               String postalCode,
-                               String tag,
-                               Boolean isDefault,
-                               LocalDateTime createdAt) {
+    public UserAddressResponse(
+            Long id,
+            Long userId,
+            String receiverName,
+            String receiverPhone,
+            String province,
+            String city,
+            String district,
+            String detailAddress,
+            String postalCode,
+            String tag,
+            Boolean isDefault,
+            LocalDateTime createdAt) {
         this.id = id;
         this.userId = userId;
         this.receiverName = receiverName;

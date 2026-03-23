@@ -20,8 +20,7 @@ public class OrderClient {
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
-    public OrderClient(RestTemplate restTemplate,
-                       @Value("${order.service.url}") String baseUrl) {
+    public OrderClient(RestTemplate restTemplate, @Value("${order.service.url}") String baseUrl) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;
     }

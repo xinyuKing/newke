@@ -4,7 +4,7 @@ export const MALL_TOKEN_KEY = "newke.mall.token";
 export const MALL_ROLE_KEY = "newke.mall.role";
 
 const mallApi = axios.create({
-  baseURL: import.meta.env.VITE_MALL_API_BASE || "/mall-api",
+  baseURL: import.meta.env.VITE_MALL_API_BASE || "/api",
   withCredentials: false,
   timeout: 10000
 });

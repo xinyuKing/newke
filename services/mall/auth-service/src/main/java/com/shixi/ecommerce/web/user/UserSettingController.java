@@ -10,6 +10,7 @@ import com.shixi.ecommerce.service.CurrentUserService;
 import com.shixi.ecommerce.service.UserAddressService;
 import com.shixi.ecommerce.service.UserProfileService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,8 +19,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * 商城用户资料接口。
@@ -34,9 +33,10 @@ public class UserSettingController {
     private final UserProfileService userProfileService;
     private final UserAddressService userAddressService;
 
-    public UserSettingController(CurrentUserService currentUserService,
-                                 UserProfileService userProfileService,
-                                 UserAddressService userAddressService) {
+    public UserSettingController(
+            CurrentUserService currentUserService,
+            UserProfileService userProfileService,
+            UserAddressService userAddressService) {
         this.currentUserService = currentUserService;
         this.userProfileService = userProfileService;
         this.userAddressService = userAddressService;
@@ -96,8 +96,8 @@ public class UserSettingController {
      * @return 更新后的地址信息
      */
     @PutMapping("/addresses/{id}")
-    public ApiResponse<UserAddressResponse> updateAddress(@PathVariable Long id,
-                                                          @Valid @RequestBody UserAddressRequest request) {
+    public ApiResponse<UserAddressResponse> updateAddress(
+            @PathVariable Long id, @Valid @RequestBody UserAddressRequest request) {
         JwtUser user = currentUserService.getCurrentUser();
         return ApiResponse.ok(userAddressService.update(user.getUserId(), id, request));
     }

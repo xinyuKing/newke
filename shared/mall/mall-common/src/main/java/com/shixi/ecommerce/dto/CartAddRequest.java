@@ -4,11 +4,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public class CartAddRequest {
-    @NotNull
-    private Long skuId;
+    @NotNull private Long skuId;
 
-    @NotNull
-    @Min(1)
+    @NotNull @Min(1)
     private Integer quantity;
 
     public Long getSkuId() {

@@ -1,15 +1,14 @@
 package com.shixi.ecommerce.service.agent.refund;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.stereotype.Component;
 
 @Component
 public class RefundMessageParser {
-    private static final Pattern ORDER_PATTERN = Pattern.compile(
-            "(?i)(?:order|ord|\\u8ba2\\u5355|\\u5355\\u53f7)[:#\\s]*([a-z0-9_-]{6,32})");
+    private static final Pattern ORDER_PATTERN =
+            Pattern.compile("(?i)(?:order|ord|\\u8ba2\\u5355|\\u5355\\u53f7)[:#\\s]*([a-z0-9_-]{6,32})");
     private static final Pattern DIGIT_PATTERN = Pattern.compile("\\b(\\d{8,24})\\b");
 
     public void enrich(RefundContext context) {
@@ -93,7 +92,8 @@ public class RefundMessageParser {
 
     private void extractEvidence(RefundContext context, String message) {
         String text = message.toLowerCase(Locale.ROOT);
-        if (containsAny(text,
+        if (containsAny(
+                text,
                 "\u7167\u7247",
                 "\u56fe\u7247",
                 "\u89c6\u9891",

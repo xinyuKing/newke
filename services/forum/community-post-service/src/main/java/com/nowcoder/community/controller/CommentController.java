@@ -13,6 +13,12 @@ import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
 import com.nowcoder.community.util.RedisKeyUtil;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,13 +26,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Thymeleaf pages for comment history and comment submission.
@@ -44,12 +43,13 @@ public class CommentController implements CommunityConstant {
     private final UserClient userClient;
     private final RedisTemplate<String, Object> redisTemplate;
 
-    public CommentController(CommentService commentService,
-                             HostHolder hostHolder,
-                             EventProducer eventProducer,
-                             DiscussPostService discussPostService,
-                             UserClient userClient,
-                             RedisTemplate<String, Object> redisTemplate) {
+    public CommentController(
+            CommentService commentService,
+            HostHolder hostHolder,
+            EventProducer eventProducer,
+            DiscussPostService discussPostService,
+            UserClient userClient,
+            RedisTemplate<String, Object> redisTemplate) {
         this.commentService = commentService;
         this.hostHolder = hostHolder;
         this.eventProducer = eventProducer;

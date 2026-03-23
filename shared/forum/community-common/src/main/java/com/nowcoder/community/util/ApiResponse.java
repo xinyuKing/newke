@@ -5,8 +5,7 @@ public class ApiResponse<T> {
     private String msg;
     private T data;
 
-    public ApiResponse() {
-    }
+    public ApiResponse() {}
 
     public ApiResponse(int code, String msg, T data) {
         this.code = code;

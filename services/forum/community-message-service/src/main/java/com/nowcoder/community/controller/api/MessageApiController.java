@@ -9,6 +9,11 @@ import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,13 +23,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.HtmlUtils;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 私信与系统通知 REST 接口。
@@ -44,8 +42,8 @@ public class MessageApiController implements CommunityConstant {
     }
 
     @GetMapping("/messages/conversations")
-    public ApiResponse<Map<String, Object>> conversations(@RequestParam(defaultValue = "1") int page,
-                                                          @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> conversations(
+            @RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "10") int limit) {
         User user = hostHolder.getUser();
         if (user == null) {
             return ApiResponse.error(403, "not_login");
@@ -61,7 +59,9 @@ public class MessageApiController implements CommunityConstant {
             Map<String, Object> item = new HashMap<>();
             item.put("conversation", conversation);
             item.put("letterCount", messageService.findLetterCount(conversation.getConversationId()));
-            item.put("unreadCount", messageService.findLetterUnreadCount(user.getId(), conversation.getConversationId()));
+            item.put(
+                    "unreadCount",
+                    messageService.findLetterUnreadCount(user.getId(), conversation.getConversationId()));
             int targetId = user.getId() == conversation.getFromId() ? conversation.getToId() : conversation.getFromId();
             item.put("target", ApiResponseUtils.unwrap(userClient.getUser(targetId)));
             conversations.add(item);
@@ -78,9 +78,10 @@ public class MessageApiController implements CommunityConstant {
     }
 
     @GetMapping("/messages/conversations/{conversationId}")
-    public ApiResponse<Map<String, Object>> conversationDetail(@PathVariable String conversationId,
-                                                               @RequestParam(defaultValue = "1") int page,
-                                                               @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> conversationDetail(
+            @PathVariable String conversationId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit) {
         User user = hostHolder.getUser();
         if (user == null) {
             return ApiResponse.error(403, "not_login");
@@ -128,7 +129,8 @@ public class MessageApiController implements CommunityConstant {
         }
 
         String toName = body.get("toName") == null ? null : body.get("toName").toString();
-        String content = body.get("content") == null ? null : body.get("content").toString();
+        String content =
+                body.get("content") == null ? null : body.get("content").toString();
         if (StringUtils.isBlank(toName)) {
             return ApiResponse.error(1, "target_empty");
         }
@@ -169,9 +171,10 @@ public class MessageApiController implements CommunityConstant {
     }
 
     @GetMapping("/notices/{topic}")
-    public ApiResponse<Map<String, Object>> noticeDetail(@PathVariable String topic,
-                                                         @RequestParam(defaultValue = "1") int page,
-                                                         @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> noticeDetail(
+            @PathVariable String topic,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit) {
         User user = hostHolder.getUser();
         if (user == null) {
             return ApiResponse.error(403, "not_login");

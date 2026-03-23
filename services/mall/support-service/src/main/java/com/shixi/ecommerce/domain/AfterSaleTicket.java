@@ -1,15 +1,26 @@
 package com.shixi.ecommerce.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "after_sale_ticket", indexes = {
-        @Index(name = "idx_after_sale_order_no", columnList = "orderNo"),
-        @Index(name = "idx_after_sale_user", columnList = "userId"),
-        @Index(name = "idx_after_sale_user_status", columnList = "userId,status")
-})
+@Table(
+        name = "after_sale_ticket",
+        indexes = {
+            @Index(name = "idx_after_sale_order_no", columnList = "orderNo"),
+            @Index(name = "idx_after_sale_user", columnList = "userId"),
+            @Index(name = "idx_after_sale_user_status", columnList = "userId,status")
+        })
 public class AfterSaleTicket {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

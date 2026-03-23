@@ -16,13 +16,13 @@ public class TransactionTests {
     private AlphaService alphaService;
 
     @Test
-    public void testSave1(){
+    public void testSave1() {
         Object result = alphaService.save1();
         System.out.println(result);
     }
 
     @Test
-    public void testSave2(){
+    public void testSave2() {
         Object result = alphaService.save2();
         System.out.println(result);
     }

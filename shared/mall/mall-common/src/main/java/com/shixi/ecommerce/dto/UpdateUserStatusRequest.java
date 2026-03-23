@@ -3,8 +3,7 @@ package com.shixi.ecommerce.dto;
 import jakarta.validation.constraints.NotNull;
 
 public class UpdateUserStatusRequest {
-    @NotNull
-    private Boolean enabled;
+    @NotNull private Boolean enabled;
 
     public Boolean getEnabled() {
         return enabled;

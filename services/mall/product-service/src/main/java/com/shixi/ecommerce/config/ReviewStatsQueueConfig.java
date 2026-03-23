@@ -31,8 +31,6 @@ public class ReviewStatsQueueConfig {
 
     @Bean
     public Binding reviewStatsBinding(Queue reviewStatsQueue, DirectExchange reviewStatsExchange) {
-        return BindingBuilder.bind(reviewStatsQueue)
-                .to(reviewStatsExchange)
-                .with(REVIEW_STATS_ROUTING_KEY);
+        return BindingBuilder.bind(reviewStatsQueue).to(reviewStatsExchange).with(REVIEW_STATS_ROUTING_KEY);
     }
 }

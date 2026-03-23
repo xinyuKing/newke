@@ -6,16 +6,15 @@ import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.dto.MerchantAnalysisResponse;
 import com.shixi.ecommerce.repository.ProductRepository;
 import com.shixi.ecommerce.repository.ProductReviewStatsRepository;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 商家经营分析服务，基于评价统计快照输出风险提示。
@@ -31,8 +30,8 @@ public class MerchantAnalysisService {
     private final ProductRepository productRepository;
     private final ProductReviewStatsRepository reviewStatsRepository;
 
-    public MerchantAnalysisService(ProductRepository productRepository,
-                                   ProductReviewStatsRepository reviewStatsRepository) {
+    public MerchantAnalysisService(
+            ProductRepository productRepository, ProductReviewStatsRepository reviewStatsRepository) {
         this.productRepository = productRepository;
         this.reviewStatsRepository = reviewStatsRepository;
     }
@@ -47,20 +46,10 @@ public class MerchantAnalysisService {
                 .count();
 
         if (products.isEmpty()) {
-            return new MerchantAnalysisResponse(
-                    merchantId,
-                    0,
-                    0,
-                    0,
-                    0.0,
-                    Collections.emptyList(),
-                    "No products yet."
-            );
+            return new MerchantAnalysisResponse(merchantId, 0, 0, 0, 0.0, Collections.emptyList(), "No products yet.");
         }
 
-        List<Long> productIds = products.stream()
-                .map(Product::getId)
-                .collect(Collectors.toList());
+        List<Long> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
         List<ProductReviewStats> stats = reviewStatsRepository.findByProductIdIn(productIds);
 
         long totalReviews = stats.stream()
@@ -74,8 +63,8 @@ public class MerchantAnalysisService {
             avgRating = weightedSum / totalReviews;
         }
 
-        Map<Long, Product> productMap = products.stream()
-                .collect(Collectors.toMap(Product::getId, Function.identity()));
+        Map<Long, Product> productMap =
+                products.stream().collect(Collectors.toMap(Product::getId, Function.identity()));
 
         List<String> riskProducts = stats.stream()
                 .filter(stat -> stat.getTotalReviews() != null && stat.getTotalReviews() >= MIN_RISK_REVIEWS)
@@ -92,23 +81,10 @@ public class MerchantAnalysisService {
 
         String summary = String.format(
                 "Merchant %d: products=%d, active=%d, reviews=%d, avg=%.2f, risk=%d.",
-                merchantId,
-                productCount,
-                activeProductCount,
-                totalReviews,
-                avgRating,
-                riskProducts.size()
-        );
+                merchantId, productCount, activeProductCount, totalReviews, avgRating, riskProducts.size());
 
         return new MerchantAnalysisResponse(
-                merchantId,
-                productCount,
-                activeProductCount,
-                totalReviews,
-                avgRating,
-                riskProducts,
-                summary
-        );
+                merchantId, productCount, activeProductCount, totalReviews, avgRating, riskProducts, summary);
     }
 
     private double safeAvg(ProductReviewStats stats) {

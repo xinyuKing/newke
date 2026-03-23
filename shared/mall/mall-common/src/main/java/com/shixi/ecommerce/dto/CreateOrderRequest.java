@@ -3,21 +3,17 @@ package com.shixi.ecommerce.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 
 public class CreateOrderRequest {
     private Long userId;
 
-    @NotNull
-    private Long skuId;
+    @NotNull private Long skuId;
 
-    @NotNull
-    @Min(1)
+    @NotNull @Min(1)
     private Integer quantity;
 
-    @NotNull
-    private BigDecimal price;
+    @NotNull private BigDecimal price;
 
     @NotBlank
     private String idempotencyKey;

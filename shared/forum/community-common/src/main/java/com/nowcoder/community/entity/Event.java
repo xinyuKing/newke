@@ -6,13 +6,13 @@ import java.util.Map;
 public class Event {
 
     private String topic;
-    //事件触发者
+    // 事件触发者
     private int userId;
     private int entityType;
     private int entityId;
-    //事件目标
+    // 事件目标
     private int entityUserId;
-    private Map<String,Object> data=new HashMap<>();
+    private Map<String, Object> data = new HashMap<>();
 
     public String getTopic() {
         return topic;
@@ -62,8 +62,8 @@ public class Event {
         return data;
     }
 
-    public Event setData(String key,Object value) {
-        this.data.put(key,value);
+    public Event setData(String key, Object value) {
+        this.data.put(key, value);
         return this;
     }
 }

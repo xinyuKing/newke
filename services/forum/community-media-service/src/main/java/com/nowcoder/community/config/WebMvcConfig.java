@@ -30,7 +30,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
         if (!location.endsWith("/")) {
             location = location + "/";
         }
-        registry.addResourceHandler("/media/**")
-                .addResourceLocations("file:" + location);
+        registry.addResourceHandler("/media/**").addResourceLocations("file:" + location);
     }
 }

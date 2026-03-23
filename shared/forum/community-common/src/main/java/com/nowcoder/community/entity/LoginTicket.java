@@ -9,8 +9,7 @@ public class LoginTicket {
     private int status;
     private Date expired;
 
-    public LoginTicket() {
-    }
+    public LoginTicket() {}
 
     public LoginTicket(int id, int userId, String ticket, int status, Date expired) {
         this.id = id;
@@ -62,12 +61,11 @@ public class LoginTicket {
 
     @Override
     public String toString() {
-        return "LoginTicket{" +
-                "id=" + id +
-                ", userId=" + userId +
-                ", ticket='" + ticket + '\'' +
-                ", status=" + status +
-                ", expired=" + expired +
-                '}';
+        return "LoginTicket{" + "id="
+                + id + ", userId="
+                + userId + ", ticket='"
+                + ticket + '\'' + ", status="
+                + status + ", expired="
+                + expired + '}';
     }
 }

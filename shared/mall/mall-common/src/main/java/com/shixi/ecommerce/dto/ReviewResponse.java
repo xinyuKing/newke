@@ -16,12 +16,8 @@ public class ReviewResponse {
     private String content;
     private LocalDateTime createdAt;
 
-    public ReviewResponse(Long id,
-                          Long productId,
-                          Long userId,
-                          Integer rating,
-                          String content,
-                          LocalDateTime createdAt) {
+    public ReviewResponse(
+            Long id, Long productId, Long userId, Integer rating, String content, LocalDateTime createdAt) {
         this.id = id;
         this.productId = productId;
         this.userId = userId;

@@ -2,14 +2,13 @@ package com.nowcoder.community.config;
 
 import com.nowcoder.community.controller.interceptor.LoginRequiredInterceptor;
 import com.nowcoder.community.controller.interceptor.LoginTicketInterceptor;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 用户服务 Web MVC 配置。
@@ -21,9 +20,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final LoginRequiredInterceptor loginRequiredInterceptor;
     private final String corsAllowedOrigins;
 
-    public WebMvcConfig(LoginTicketInterceptor loginTicketInterceptor,
-                        LoginRequiredInterceptor loginRequiredInterceptor,
-                        @Value("${community.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}") String corsAllowedOrigins) {
+    public WebMvcConfig(
+            LoginTicketInterceptor loginTicketInterceptor,
+            LoginRequiredInterceptor loginRequiredInterceptor,
+            @Value("${community.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}")
+                    String corsAllowedOrigins) {
         this.loginTicketInterceptor = loginTicketInterceptor;
         this.loginRequiredInterceptor = loginRequiredInterceptor;
         this.corsAllowedOrigins = corsAllowedOrigins;

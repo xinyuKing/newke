@@ -13,10 +13,11 @@ public class RefundPolicyAgent implements RefundSubAgent {
     private final ModelClient modelClient;
     private final RefundSkillRegistry skillRegistry;
 
-    public RefundPolicyAgent(AgentProfileRegistry profileRegistry,
-                             RagService ragService,
-                             ModelClient modelClient,
-                             RefundSkillRegistry skillRegistry) {
+    public RefundPolicyAgent(
+            AgentProfileRegistry profileRegistry,
+            RagService ragService,
+            ModelClient modelClient,
+            RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;
@@ -39,9 +40,6 @@ public class RefundPolicyAgent implements RefundSubAgent {
         var docs = ragService.retrieve(prompt, profile.getRagCollection());
         String text = modelClient.generate(profile, prompt, docs);
         return new RefundAgentOutput(
-                text,
-                skillOutput.getUpdates(),
-                skillOutput.getDecision(),
-                String.join(" | ", docs));
+                text, skillOutput.getUpdates(), skillOutput.getDecision(), String.join(" | ", docs));
     }
 }

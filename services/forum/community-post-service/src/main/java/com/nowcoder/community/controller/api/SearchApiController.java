@@ -8,13 +8,6 @@ import com.nowcoder.community.service.ElasticsearchService;
 import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.domain.Page;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -22,6 +15,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 搜索 REST 接口。
@@ -34,18 +33,18 @@ public class SearchApiController implements CommunityConstant {
     private final UserClient userClient;
     private final LikeClient likeClient;
 
-    public SearchApiController(ElasticsearchService elasticsearchService,
-                               UserClient userClient,
-                               LikeClient likeClient) {
+    public SearchApiController(
+            ElasticsearchService elasticsearchService, UserClient userClient, LikeClient likeClient) {
         this.elasticsearchService = elasticsearchService;
         this.userClient = userClient;
         this.likeClient = likeClient;
     }
 
     @GetMapping
-    public ApiResponse<Map<String, Object>> search(@RequestParam String keyword,
-                                                   @RequestParam(defaultValue = "1") int page,
-                                                   @RequestParam(defaultValue = "10") int limit) {
+    public ApiResponse<Map<String, Object>> search(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int limit) {
         int safePage = Math.max(page, 1);
         int safeLimit = limit > 0 ? limit : 10;
         String trimmedKeyword = StringUtils.trimToEmpty(keyword);

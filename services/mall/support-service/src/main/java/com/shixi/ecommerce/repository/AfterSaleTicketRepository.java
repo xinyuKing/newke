@@ -1,13 +1,12 @@
 package com.shixi.ecommerce.repository;
 
-import com.shixi.ecommerce.domain.AfterSaleTicket;
 import com.shixi.ecommerce.domain.AfterSaleStatus;
-import org.springframework.data.jpa.repository.JpaRepository;
-
+import com.shixi.ecommerce.domain.AfterSaleTicket;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AfterSaleTicketRepository extends JpaRepository<AfterSaleTicket, Long> {
     List<AfterSaleTicket> findByUserIdOrderByCreatedAtDesc(Long userId);

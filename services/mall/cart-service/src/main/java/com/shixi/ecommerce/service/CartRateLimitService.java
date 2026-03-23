@@ -1,11 +1,10 @@
 package com.shixi.ecommerce.service;
 
 import com.shixi.ecommerce.config.CartRateLimitProperties;
+import java.util.Collections;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
-
-import java.util.Collections;
 
 /**
  * 购物车接口限流服务，支持用户与 IP 维度。
@@ -22,9 +21,10 @@ public class CartRateLimitService {
     private final DefaultRedisScript<Long> rateLimitScript;
     private final CartRateLimitProperties properties;
 
-    public CartRateLimitService(StringRedisTemplate redisTemplate,
-                                DefaultRedisScript<Long> rateLimitScript,
-                                CartRateLimitProperties properties) {
+    public CartRateLimitService(
+            StringRedisTemplate redisTemplate,
+            DefaultRedisScript<Long> rateLimitScript,
+            CartRateLimitProperties properties) {
         this.redisTemplate = redisTemplate;
         this.rateLimitScript = rateLimitScript;
         this.properties = properties;
@@ -45,8 +45,12 @@ public class CartRateLimitService {
     }
 
     private boolean allow(String key, int limit, int windowSeconds) {
-        Long result = redisTemplate.execute(rateLimitScript, Collections.singletonList(key),
-                String.valueOf(limit), String.valueOf(windowSeconds), properties.getAlgorithm());
+        Long result = redisTemplate.execute(
+                rateLimitScript,
+                Collections.singletonList(key),
+                String.valueOf(limit),
+                String.valueOf(windowSeconds),
+                properties.getAlgorithm());
         return result != null && result == 1;
     }
 }

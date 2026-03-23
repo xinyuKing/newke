@@ -15,15 +15,6 @@ import com.qiniu.storage.Configuration;
 import com.qiniu.storage.UploadManager;
 import com.qiniu.util.Auth;
 import com.qiniu.util.StringMap;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.stereotype.Component;
-
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
@@ -33,6 +24,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.stereotype.Component;
 
 /**
  * 论坛消息事件消费者。
@@ -53,14 +52,15 @@ public class EventConsumer implements CommunityConstant {
     private final String secret;
     private final String shareBucketName;
 
-    public EventConsumer(MessageService messageService,
-                         SearchClient searchClient,
-                         ThreadPoolTaskScheduler taskScheduler,
-                         @Value("${wk.image.command}") String wkImageCommand,
-                         @Value("${wk.image.storage}") String wkImageStorage,
-                         @Value("${qiniu.key.access}") String access,
-                         @Value("${qiniu.key.secret}") String secret,
-                         @Value("${qiniu.bucket.share.name}") String shareBucketName) {
+    public EventConsumer(
+            MessageService messageService,
+            SearchClient searchClient,
+            ThreadPoolTaskScheduler taskScheduler,
+            @Value("${wk.image.command}") String wkImageCommand,
+            @Value("${wk.image.storage}") String wkImageStorage,
+            @Value("${qiniu.key.access}") String access,
+            @Value("${qiniu.key.secret}") String secret,
+            @Value("${qiniu.bucket.share.name}") String shareBucketName) {
         this.messageService = messageService;
         this.searchClient = searchClient;
         this.taskScheduler = taskScheduler;
@@ -275,7 +275,9 @@ public class EventConsumer implements CommunityConstant {
                 String contentType = "image/" + (suffix.startsWith(".") ? suffix.substring(1) : suffix);
                 Response response = manager.put(path, fileName, uploadToken, null, contentType, false);
                 JSONObject json = JSONObject.parseObject(response.bodyString());
-                if (json == null || json.get("code") == null || !"0".equals(json.get("code").toString())) {
+                if (json == null
+                        || json.get("code") == null
+                        || !"0".equals(json.get("code").toString())) {
                     LOGGER.warn("第{}次上传失败[{}]。", uploadTimes, fileName);
                     return;
                 }

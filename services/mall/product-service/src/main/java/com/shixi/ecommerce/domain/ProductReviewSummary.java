@@ -1,13 +1,20 @@
 package com.shixi.ecommerce.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "product_review_summary", indexes = {
-        @Index(name = "idx_review_summary_product", columnList = "productId", unique = true)
-})
+@Table(
+        name = "product_review_summary",
+        indexes = {@Index(name = "idx_review_summary_product", columnList = "productId", unique = true)})
 public class ProductReviewSummary {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

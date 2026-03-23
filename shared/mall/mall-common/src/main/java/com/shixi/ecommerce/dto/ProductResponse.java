@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.ProductStatus;
-
 import java.math.BigDecimal;
 
 public class ProductResponse {
@@ -13,13 +12,14 @@ public class ProductResponse {
     private BigDecimal price;
     private ProductStatus status;
 
-    public ProductResponse(Long id,
-                           Long merchantId,
-                           String name,
-                           String description,
-                           String videoUrl,
-                           BigDecimal price,
-                           ProductStatus status) {
+    public ProductResponse(
+            Long id,
+            Long merchantId,
+            String name,
+            String description,
+            String videoUrl,
+            BigDecimal price,
+            ProductStatus status) {
         this.id = id;
         this.merchantId = merchantId;
         this.name = name;

@@ -1,7 +1,14 @@
 package com.shixi.ecommerce.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
@@ -11,9 +18,9 @@ import java.time.LocalDateTime;
  * @date 2026-03-20
  */
 @Entity
-@Table(name = "user_account", indexes = {
-        @Index(name = "idx_user_account_username", columnList = "username", unique = true)
-})
+@Table(
+        name = "user_account",
+        indexes = {@Index(name = "idx_user_account_username", columnList = "username", unique = true)})
 public class UserAccount {
     @Id
     private Long id;

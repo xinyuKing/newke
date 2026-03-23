@@ -1,8 +1,7 @@
 package com.shixi.ecommerce.service.agent;
 
-import org.springframework.stereotype.Component;
-
 import java.util.Locale;
+import org.springframework.stereotype.Component;
 
 @Component
 public class LogisticsAgent implements Agent {

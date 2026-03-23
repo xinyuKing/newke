@@ -11,8 +11,7 @@ public class Message {
     private int status;
     private Date createTime;
 
-    public Message() {
-    }
+    public Message() {}
 
     public Message(int id, int fromId, int toId, String conversationId, String content, int status, Date createTime) {
         this.id = id;
@@ -82,14 +81,13 @@ public class Message {
 
     @Override
     public String toString() {
-        return "Message{" +
-                "id=" + id +
-                ", fromId=" + fromId +
-                ", toId=" + toId +
-                ", conversationId='" + conversationId + '\'' +
-                ", content='" + content + '\'' +
-                ", status=" + status +
-                ", createTime=" + createTime +
-                '}';
+        return "Message{" + "id="
+                + id + ", fromId="
+                + fromId + ", toId="
+                + toId + ", conversationId='"
+                + conversationId + '\'' + ", content='"
+                + content + '\'' + ", status="
+                + status + ", createTime="
+                + createTime + '}';
     }
 }

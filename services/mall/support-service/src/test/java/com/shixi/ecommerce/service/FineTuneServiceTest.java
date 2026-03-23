@@ -1,16 +1,15 @@
 package com.shixi.ecommerce.service;
 
-import com.shixi.ecommerce.common.BusinessException;
-import com.shixi.ecommerce.dto.FineTuneRequest;
-import com.shixi.ecommerce.repository.FineTuneJobRepository;
-import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.Executor;
-
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+
+import com.shixi.ecommerce.common.BusinessException;
+import com.shixi.ecommerce.dto.FineTuneRequest;
+import com.shixi.ecommerce.repository.FineTuneJobRepository;
+import java.util.concurrent.Executor;
+import org.junit.jupiter.api.Test;
 
 class FineTuneServiceTest {
     @Test

@@ -1,6 +1,9 @@
 package com.shixi.ecommerce.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import java.util.HashMap;
+import java.util.Map;
+import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -10,10 +13,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
-
-import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 读写分离数据源配置，读库未配置时回退到主库。
@@ -39,27 +38,31 @@ public class ReadWriteDataSourceConfig {
     @Bean
     @ConfigurationProperties("spring.datasource.hikari")
     public DataSource writeDataSource(@Qualifier("writeDataSourceProperties") DataSourceProperties properties) {
-        return properties.initializeDataSourceBuilder()
+        return properties
+                .initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
     }
 
     @Bean
     @ConfigurationProperties("spring.datasource.read.hikari")
-    public DataSource readDataSource(@Qualifier("readDataSourceProperties") DataSourceProperties properties,
-                                     @Qualifier("writeDataSource") DataSource writeDataSource) {
+    public DataSource readDataSource(
+            @Qualifier("readDataSourceProperties") DataSourceProperties properties,
+            @Qualifier("writeDataSource") DataSource writeDataSource) {
         if (!StringUtils.hasText(properties.getUrl())) {
             return writeDataSource;
         }
-        return properties.initializeDataSourceBuilder()
+        return properties
+                .initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
     }
 
     @Bean
     @Primary
-    public DataSource routingDataSource(@Qualifier("writeDataSource") DataSource writeDataSource,
-                                        @Qualifier("readDataSource") DataSource readDataSource) {
+    public DataSource routingDataSource(
+            @Qualifier("writeDataSource") DataSource writeDataSource,
+            @Qualifier("readDataSource") DataSource readDataSource) {
         ReadOnlyRoutingDataSource routingDataSource = new ReadOnlyRoutingDataSource();
         Map<Object, Object> targets = new HashMap<>();
         targets.put(DataSourceType.WRITE, writeDataSource);

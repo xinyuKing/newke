@@ -2,7 +2,6 @@ package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.service.agent.refund.RefundIntentAlgorithm;
 import jakarta.validation.constraints.NotEmpty;
-
 import java.util.List;
 
 public class RefundIntentTrainRequest {

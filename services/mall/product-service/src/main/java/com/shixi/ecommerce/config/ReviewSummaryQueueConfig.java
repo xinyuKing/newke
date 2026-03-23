@@ -31,8 +31,6 @@ public class ReviewSummaryQueueConfig {
 
     @Bean
     public Binding reviewSummaryBinding(Queue reviewSummaryQueue, DirectExchange reviewSummaryExchange) {
-        return BindingBuilder.bind(reviewSummaryQueue)
-                .to(reviewSummaryExchange)
-                .with(REVIEW_SUMMARY_ROUTING_KEY);
+        return BindingBuilder.bind(reviewSummaryQueue).to(reviewSummaryExchange).with(REVIEW_SUMMARY_ROUTING_KEY);
     }
 }

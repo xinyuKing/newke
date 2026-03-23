@@ -14,11 +14,8 @@ public class TrackingResponse {
     private String status;
     private List<TrackingEvent> events;
 
-    public TrackingResponse(String orderNo,
-                            String carrierCode,
-                            String trackingNo,
-                            String status,
-                            List<TrackingEvent> events) {
+    public TrackingResponse(
+            String orderNo, String carrierCode, String trackingNo, String status, List<TrackingEvent> events) {
         this.orderNo = orderNo;
         this.carrierCode = carrierCode;
         this.trackingNo = trackingNo;

@@ -20,12 +20,6 @@
   </module>
 
   <!-- 禁止把临时调试代码带入提交。 -->
-  <module name="RegexpSinglelineJava">
-    <property name="format" value="System\.out\.print|System\.err\.print|printStackTrace\s*\("/>
-    <property name="message" value="Use logger instead of console printing."/>
-    <property name="ignoreComments" value="true"/>
-  </module>
-
   <module name="TreeWalker">
     <module name="OuterTypeFilename"/>
     <module name="OneTopLevelClass"/>
@@ -34,5 +28,10 @@
     <module name="RedundantImport"/>
     <module name="NeedBraces"/>
     <module name="EmptyBlock"/>
+    <module name="RegexpSinglelineJava">
+      <property name="format" value="System\.out\.print|System\.err\.print|printStackTrace\s*\("/>
+      <property name="message" value="Use logger instead of console printing."/>
+      <property name="ignoreComments" value="true"/>
+    </module>
   </module>
 </module>

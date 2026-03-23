@@ -2,13 +2,12 @@ package com.nowcoder.community.controller.interceptor;
 
 import com.nowcoder.community.annotation.LoginRequired;
 import com.nowcoder.community.util.HostHolder;
-import org.springframework.stereotype.Component;
-import org.springframework.web.method.HandlerMethod;
-import org.springframework.web.servlet.HandlerInterceptor;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.lang.reflect.Method;
+import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * 校验带有 {@link LoginRequired} 注解的方法是否已经登录。
@@ -23,7 +22,8 @@ public class LoginRequiredInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
+            throws Exception {
         if (!(handler instanceof HandlerMethod)) {
             return true;
         }

@@ -3,7 +3,6 @@ package com.shixi.ecommerce.service.agent.refund.skill;
 import com.shixi.ecommerce.service.agent.refund.RefundAgentOutput;
 import com.shixi.ecommerce.service.agent.refund.RefundContext;
 import com.shixi.ecommerce.service.agent.refund.RefundTaskPlan;
-
 import java.util.List;
 
 public final class RefundSkillRequest {

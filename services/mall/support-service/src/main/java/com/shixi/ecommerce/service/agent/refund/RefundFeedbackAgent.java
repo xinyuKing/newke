@@ -4,9 +4,8 @@ import com.shixi.ecommerce.domain.SessionState;
 import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillNames;
 import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRegistry;
 import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRequest;
-import org.springframework.stereotype.Service;
-
 import java.util.List;
+import org.springframework.stereotype.Service;
 
 @Service
 public class RefundFeedbackAgent {
@@ -15,10 +14,11 @@ public class RefundFeedbackAgent {
     private final ModelClient modelClient;
     private final RefundSkillRegistry skillRegistry;
 
-    public RefundFeedbackAgent(AgentProfileRegistry profileRegistry,
-                               RagService ragService,
-                               ModelClient modelClient,
-                               RefundSkillRegistry skillRegistry) {
+    public RefundFeedbackAgent(
+            AgentProfileRegistry profileRegistry,
+            RagService ragService,
+            ModelClient modelClient,
+            RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;

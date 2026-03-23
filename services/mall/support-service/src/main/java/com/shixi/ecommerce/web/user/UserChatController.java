@@ -9,10 +9,14 @@ import com.shixi.ecommerce.dto.ChatSessionResponse;
 import com.shixi.ecommerce.service.CurrentUserService;
 import com.shixi.ecommerce.service.chat.ChatService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/user/support")
@@ -35,8 +39,9 @@ public class UserChatController {
     @GetMapping("/sessions")
     public ApiResponse<List<ChatSessionResponse>> listSessions() {
         Long userId = currentUserService.getCurrentUser().getUserId();
-        List<ChatSessionResponse> sessions = chatService.listSessionsByUser(userId)
-                .stream().map(this::toSessionResponse).collect(Collectors.toList());
+        List<ChatSessionResponse> sessions = chatService.listSessionsByUser(userId).stream()
+                .map(this::toSessionResponse)
+                .collect(Collectors.toList());
         return ApiResponse.ok(sessions);
     }
 
@@ -49,8 +54,10 @@ public class UserChatController {
 
     @GetMapping("/session/{sessionId}/messages")
     public ApiResponse<List<ChatMessageResponse>> messages(@PathVariable String sessionId) {
-        List<ChatMessageResponse> messages = chatService.listMessages(sessionId)
-                .stream().map(this::toMessageResponse).collect(Collectors.toList());
+        Long userId = currentUserService.getCurrentUser().getUserId();
+        List<ChatMessageResponse> messages = chatService.listMessagesForUser(userId, sessionId).stream()
+                .map(this::toMessageResponse)
+                .collect(Collectors.toList());
         return ApiResponse.ok(messages);
     }
 
@@ -60,8 +67,7 @@ public class UserChatController {
                 session.getUserId(),
                 session.getSupportId(),
                 session.getStatus(),
-                session.getUpdatedAt()
-        );
+                session.getUpdatedAt());
     }
 
     private ChatMessageResponse toMessageResponse(ChatMessage message) {
@@ -71,7 +77,6 @@ public class UserChatController {
                 message.getSenderRole(),
                 message.getSenderId(),
                 message.getContent(),
-                message.getCreatedAt()
-        );
+                message.getCreatedAt());
     }
 }

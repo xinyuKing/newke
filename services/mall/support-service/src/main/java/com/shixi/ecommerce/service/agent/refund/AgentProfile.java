@@ -8,12 +8,13 @@ public class AgentProfile {
     private final int maxTokens;
     private final double temperature;
 
-    public AgentProfile(String agentType,
-                        String baseModel,
-                        String fineTuneModel,
-                        String ragCollection,
-                        int maxTokens,
-                        double temperature) {
+    public AgentProfile(
+            String agentType,
+            String baseModel,
+            String fineTuneModel,
+            String ragCollection,
+            int maxTokens,
+            double temperature) {
         this.agentType = agentType;
         this.baseModel = baseModel;
         this.fineTuneModel = fineTuneModel;

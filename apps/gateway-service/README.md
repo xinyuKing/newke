@@ -1,4 +1,4 @@
-﻿# 网关服务（gateway-service）
+# 网关服务（gateway-service）
 
 ## 功能概述
 统一路由、鉴权、限流与熔断。支持灰度路由（通过 Header 触发），并在网关层注入用户信息头。

@@ -5,11 +5,10 @@ import com.shixi.ecommerce.domain.UserAddress;
 import com.shixi.ecommerce.dto.UserAddressRequest;
 import com.shixi.ecommerce.dto.UserAddressResponse;
 import com.shixi.ecommerce.repository.UserAddressRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 用户地址服务。
@@ -33,8 +32,7 @@ public class UserAddressService {
      */
     @Transactional(readOnly = true)
     public List<UserAddressResponse> list(Long userId) {
-        return repository.findByUserIdOrderByIsDefaultDescIdDesc(userId)
-                .stream()
+        return repository.findByUserIdOrderByIsDefaultDescIdDesc(userId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -70,8 +68,8 @@ public class UserAddressService {
      */
     @Transactional
     public UserAddressResponse update(Long userId, Long id, UserAddressRequest request) {
-        UserAddress address = repository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new BusinessException("Address not found"));
+        UserAddress address =
+                repository.findByIdAndUserId(id, userId).orElseThrow(() -> new BusinessException("Address not found"));
         apply(address, request);
         if (Boolean.TRUE.equals(request.getIsDefault())) {
             repository.clearDefault(userId);
@@ -91,8 +89,8 @@ public class UserAddressService {
      */
     @Transactional
     public void delete(Long userId, Long id) {
-        UserAddress address = repository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new BusinessException("Address not found"));
+        UserAddress address =
+                repository.findByIdAndUserId(id, userId).orElseThrow(() -> new BusinessException("Address not found"));
         boolean wasDefault = address.isDefault();
         repository.delete(address);
         if (wasDefault) {
@@ -114,8 +112,8 @@ public class UserAddressService {
      */
     @Transactional
     public void setDefault(Long userId, Long id) {
-        UserAddress address = repository.findByIdAndUserId(id, userId)
-                .orElseThrow(() -> new BusinessException("Address not found"));
+        UserAddress address =
+                repository.findByIdAndUserId(id, userId).orElseThrow(() -> new BusinessException("Address not found"));
         repository.clearDefault(userId);
         address.setDefault(true);
         repository.save(address);
@@ -148,7 +146,6 @@ public class UserAddressService {
                 address.getPostalCode(),
                 address.getTag(),
                 address.isDefault(),
-                address.getCreatedAt()
-        );
+                address.getCreatedAt());
     }
 }

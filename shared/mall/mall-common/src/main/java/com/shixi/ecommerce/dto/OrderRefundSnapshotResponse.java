@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.OrderStatus;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,15 +16,16 @@ public class OrderRefundSnapshotResponse {
     private LocalDateTime createdAt;
     private List<OrderItemResponse> items;
 
-    public OrderRefundSnapshotResponse(String orderNo,
-                                       Long userId,
-                                       OrderStatus status,
-                                       BigDecimal totalAmount,
-                                       String carrierCode,
-                                       String trackingNo,
-                                       LocalDateTime shippedAt,
-                                       LocalDateTime createdAt,
-                                       List<OrderItemResponse> items) {
+    public OrderRefundSnapshotResponse(
+            String orderNo,
+            Long userId,
+            OrderStatus status,
+            BigDecimal totalAmount,
+            String carrierCode,
+            String trackingNo,
+            LocalDateTime shippedAt,
+            LocalDateTime createdAt,
+            List<OrderItemResponse> items) {
         this.orderNo = orderNo;
         this.userId = userId;
         this.status = status;

@@ -98,7 +98,6 @@
           </java>
           <formats>
             <format>
-              <name>misc</name>
               <includes>
                 <include>pom.xml</include>
                 <include>**/*.md</include>
@@ -143,7 +142,6 @@
         </dependencies>
         <configuration>
           <configLocation>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</configLocation>
-          <encoding>UTF-8</encoding>
           <consoleOutput>true</consoleOutput>
           <failsOnError>true</failsOnError>
           <linkXRef>false</linkXRef>

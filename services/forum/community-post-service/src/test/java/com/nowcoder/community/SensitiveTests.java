@@ -16,7 +16,7 @@ public class SensitiveTests {
     private SensitiveFilter sensitiveFilter;
 
     @Test
-    public void testSensitiveFilter(){
+    public void testSensitiveFilter() {
         String str = sensitiveFilter.filter("嫖**娼");
         System.out.println(str);
     }

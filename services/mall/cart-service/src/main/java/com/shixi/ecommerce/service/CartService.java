@@ -8,14 +8,13 @@ import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.dto.CartItemResponse;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.CartItemRepository;
+import java.time.Duration;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 购物车领域服务，负责购物车增删改查。
@@ -34,10 +33,11 @@ public class CartService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    public CartService(CartItemRepository cartItemRepository,
-                       ProductClient productClient,
-                       StringRedisTemplate redisTemplate,
-                       ObjectMapper objectMapper) {
+    public CartService(
+            CartItemRepository cartItemRepository,
+            ProductClient productClient,
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper) {
         this.cartItemRepository = cartItemRepository;
         this.productClient = productClient;
         this.redisTemplate = redisTemplate;

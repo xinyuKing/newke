@@ -107,7 +107,7 @@ const loadOrder = async () => {
       await hydrateProducts(detail.value.items.map((item) => item.skuId));
     }
     if (detail.value?.trackingNo || detail.value?.status === "SHIPPED" || detail.value?.status === "COMPLETED") {
-      const trackingResp = await mallApi.get(`/orders/${route.params.orderNo}/tracking`);
+      const trackingResp = await mallApi.get(`/user/orders/${route.params.orderNo}/tracking`);
       tracking.value = trackingResp.data?.success ? trackingResp.data.data : null;
     } else {
       tracking.value = null;
@@ -119,7 +119,7 @@ const loadOrder = async () => {
 
 const payOrder = async () => {
   message.value = "";
-  const { data } = await mallApi.post(`/orders/${route.params.orderNo}/pay`);
+  const { data } = await mallApi.post(`/user/orders/${route.params.orderNo}/pay`);
   if (data?.success) {
     message.value = "Order marked as paid.";
     await loadOrder();
@@ -130,7 +130,7 @@ const payOrder = async () => {
 
 const confirmReceipt = async () => {
   message.value = "";
-  const { data } = await mallApi.post(`/orders/${route.params.orderNo}/confirm`);
+  const { data } = await mallApi.post(`/user/orders/${route.params.orderNo}/confirm`);
   if (data?.success) {
     message.value = "Receipt confirmed.";
     await loadOrder();

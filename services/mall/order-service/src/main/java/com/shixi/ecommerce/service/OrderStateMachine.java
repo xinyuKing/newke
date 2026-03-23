@@ -2,12 +2,11 @@ package com.shixi.ecommerce.service;
 
 import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.domain.OrderStatus;
-import org.springframework.stereotype.Service;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.stereotype.Service;
 
 /**
  * 订单状态流转状态机，统一校验状态与角色权限。
@@ -20,9 +19,9 @@ public class OrderStateMachine {
     private final Map<Transition, Set<String>> rules = new HashMap<>();
 
     public OrderStateMachine() {
-        register(OrderStatus.CREATED, OrderStatus.PAID, Set.of("USER", "ADMIN", "SUPPORT"));
+        register(OrderStatus.CREATED, OrderStatus.PAID, Set.of("USER"));
         register(OrderStatus.PAID, OrderStatus.SHIPPED, Set.of("MERCHANT", "ADMIN", "SUPPORT"));
-        register(OrderStatus.SHIPPED, OrderStatus.COMPLETED, Set.of("USER", "ADMIN", "SUPPORT"));
+        register(OrderStatus.SHIPPED, OrderStatus.COMPLETED, Set.of("USER"));
         register(OrderStatus.CREATED, OrderStatus.CANCELED, Set.of("SYSTEM", "USER", "ADMIN", "SUPPORT"));
     }
 

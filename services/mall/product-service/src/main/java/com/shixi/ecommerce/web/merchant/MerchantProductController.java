@@ -7,11 +7,15 @@ import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.service.CurrentUserService;
 import com.shixi.ecommerce.service.ProductService;
 import jakarta.validation.Valid;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/merchant/products")
@@ -31,18 +35,18 @@ public class MerchantProductController {
     }
 
     @GetMapping
-    public ApiResponse<List<ProductResponse>> list(@RequestParam(required = false) Integer page,
-                                                   @RequestParam(required = false) Integer size) {
+    public ApiResponse<List<ProductResponse>> list(
+            @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
         Long merchantId = currentUserService.getCurrentUser().getUserId();
         return ApiResponse.ok(productService.listByMerchant(merchantId, page, size));
     }
 
     @GetMapping("/cursor")
-    public ApiResponse<CursorPageResponse<ProductResponse>> listCursor(@RequestParam(required = false)
-                                                                       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                                                       LocalDateTime cursorTime,
-                                                                       @RequestParam(required = false) Long cursorId,
-                                                                       @RequestParam(required = false) Integer size) {
+    public ApiResponse<CursorPageResponse<ProductResponse>> listCursor(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime cursorTime,
+            @RequestParam(required = false) Long cursorId,
+            @RequestParam(required = false) Integer size) {
         Long merchantId = currentUserService.getCurrentUser().getUserId();
         return ApiResponse.ok(productService.listByMerchantCursor(merchantId, cursorTime, cursorId, size));
     }

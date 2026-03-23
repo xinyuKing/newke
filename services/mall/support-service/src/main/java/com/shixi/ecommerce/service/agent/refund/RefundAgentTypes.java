@@ -11,6 +11,5 @@ public final class RefundAgentTypes {
     public static final String FUSION = "REFUND_FUSION";
     public static final String FEEDBACK = "REFUND_FEEDBACK";
 
-    private RefundAgentTypes() {
-    }
+    private RefundAgentTypes() {}
 }

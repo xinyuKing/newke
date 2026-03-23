@@ -11,15 +11,14 @@ import com.shixi.ecommerce.service.ProductSearchService;
 import com.shixi.ecommerce.service.ProductService;
 import com.shixi.ecommerce.service.ReviewService;
 import com.shixi.ecommerce.service.ReviewSummaryService;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/products")
@@ -30,11 +29,12 @@ public class ProductController {
     private final ProductSearchService productSearchService;
     private final ProductRecommendService productRecommendService;
 
-    public ProductController(ProductService productService,
-                             ReviewSummaryService reviewSummaryService,
-                             ReviewService reviewService,
-                             ProductSearchService productSearchService,
-                             ProductRecommendService productRecommendService) {
+    public ProductController(
+            ProductService productService,
+            ReviewSummaryService reviewSummaryService,
+            ReviewService reviewService,
+            ProductSearchService productSearchService,
+            ProductRecommendService productRecommendService) {
         this.productService = productService;
         this.reviewSummaryService = reviewSummaryService;
         this.reviewService = reviewService;
@@ -43,27 +43,27 @@ public class ProductController {
     }
 
     @GetMapping
-    public ApiResponse<List<ProductResponse>> listActive(@RequestParam(required = false) Integer page,
-                                                         @RequestParam(required = false) Integer size) {
+    public ApiResponse<List<ProductResponse>> listActive(
+            @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
         return ApiResponse.ok(productService.listActiveProducts(page, size));
     }
 
     @GetMapping("/cursor")
-    public ApiResponse<CursorPageResponse<ProductResponse>> listActiveCursor(@RequestParam(required = false)
-                                                                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                                                             LocalDateTime cursorTime,
-                                                                             @RequestParam(required = false) Long cursorId,
-                                                                             @RequestParam(required = false) Integer size) {
+    public ApiResponse<CursorPageResponse<ProductResponse>> listActiveCursor(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime cursorTime,
+            @RequestParam(required = false) Long cursorId,
+            @RequestParam(required = false) Integer size) {
         return ApiResponse.ok(productService.listActiveProductsCursor(cursorTime, cursorId, size));
     }
 
     @GetMapping("/search")
-    public ApiResponse<CursorPageResponse<ProductResponse>> search(@RequestParam(required = false) String q,
-                                                                   @RequestParam(required = false)
-                                                                   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                                                   LocalDateTime cursorTime,
-                                                                   @RequestParam(required = false) Long cursorId,
-                                                                   @RequestParam(required = false) Integer size) {
+    public ApiResponse<CursorPageResponse<ProductResponse>> search(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime cursorTime,
+            @RequestParam(required = false) Long cursorId,
+            @RequestParam(required = false) Integer size) {
         return ApiResponse.ok(productSearchService.searchActiveProducts(q, cursorTime, cursorId, size));
     }
 
@@ -83,21 +83,22 @@ public class ProductController {
     }
 
     @GetMapping("/{id}/reviews")
-    public ApiResponse<ReviewSliceResponse> listReviews(@PathVariable Long id,
-                                                        @RequestParam(required = false) Integer rating,
-                                                        @RequestParam(required = false) Integer page,
-                                                        @RequestParam(required = false) Integer size) {
+    public ApiResponse<ReviewSliceResponse> listReviews(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         return ApiResponse.ok(reviewService.listReviews(id, rating, page, size));
     }
 
     @GetMapping("/{id}/reviews/cursor")
-    public ApiResponse<CursorPageResponse<ReviewResponse>> listReviewsCursor(@PathVariable Long id,
-                                                                             @RequestParam(required = false) Integer rating,
-                                                                             @RequestParam(required = false)
-                                                                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-                                                                             LocalDateTime cursorTime,
-                                                                             @RequestParam(required = false) Long cursorId,
-                                                                             @RequestParam(required = false) Integer size) {
+    public ApiResponse<CursorPageResponse<ReviewResponse>> listReviewsCursor(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    LocalDateTime cursorTime,
+            @RequestParam(required = false) Long cursorId,
+            @RequestParam(required = false) Integer size) {
         return ApiResponse.ok(reviewService.listReviewsCursor(id, rating, cursorTime, cursorId, size));
     }
 }

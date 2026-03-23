@@ -6,7 +6,6 @@ export default defineConfig(({ mode }) => {
   const unifiedGatewayTarget = env.VITE_GATEWAY_PROXY_TARGET || "http://localhost:8080";
   const forumTarget = env.VITE_FORUM_PROXY_TARGET || unifiedGatewayTarget;
   const mallTarget = env.VITE_MALL_PROXY_TARGET || unifiedGatewayTarget;
-  const rewriteMallApi = (path) => path.replace(/^\/mall-api/, "/api");
 
   return {
     plugins: [vue()],
@@ -17,10 +16,9 @@ export default defineConfig(({ mode }) => {
           target: forumTarget,
           changeOrigin: true
         },
-        "/mall-api": {
+        "/api": {
           target: mallTarget,
-          changeOrigin: true,
-          rewrite: rewriteMallApi
+          changeOrigin: true
         }
       }
     }

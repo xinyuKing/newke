@@ -1,13 +1,6 @@
-﻿package com.nowcoder.community.service;
+package com.nowcoder.community.service;
 
 import com.nowcoder.community.util.RedisKeyUtil;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.connection.RedisConnection;
-import org.springframework.data.redis.connection.RedisStringCommands;
-import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Service;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -16,6 +9,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.RedisStringCommands;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
 
 /**
  * 站点统计服务。
@@ -95,11 +94,13 @@ public class DataService {
         LocalDate currentDate = toLocalDate(start);
         LocalDate endDate = toLocalDate(end);
         while (!currentDate.isAfter(endDate)) {
-            redisKeys.add(RedisKeyUtil.getDAUKey(currentDate.format(DATE_FORMATTER)).getBytes(StandardCharsets.UTF_8));
+            redisKeys.add(
+                    RedisKeyUtil.getDAUKey(currentDate.format(DATE_FORMATTER)).getBytes(StandardCharsets.UTF_8));
             currentDate = currentDate.plusDays(1);
         }
 
-        Long count = redisTemplate.execute((RedisCallback<Long>) connection -> bitCountByRange(connection, start, end, redisKeys));
+        Long count = redisTemplate.execute(
+                (RedisCallback<Long>) connection -> bitCountByRange(connection, start, end, redisKeys));
         return count == null ? 0L : count;
     }
 
@@ -113,10 +114,8 @@ public class DataService {
      * @return DAU 统计结果
      * @throws DataAccessException Redis 访问异常
      */
-    private Long bitCountByRange(RedisConnection connection,
-                                 Date start,
-                                 Date end,
-                                 List<byte[]> redisKeys) throws DataAccessException {
+    private Long bitCountByRange(RedisConnection connection, Date start, Date end, List<byte[]> redisKeys)
+            throws DataAccessException {
         String redisKey = RedisKeyUtil.getDAUKey(formatDate(start), formatDate(end));
         byte[] unionKey = redisKey.getBytes(StandardCharsets.UTF_8);
         connection.bitOp(RedisStringCommands.BitOperation.OR, unionKey, redisKeys.toArray(new byte[0][]));

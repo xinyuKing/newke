@@ -4,11 +4,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public class InventoryInitRequest {
-    @NotNull
-    private Long skuId;
+    @NotNull private Long skuId;
 
-    @NotNull
-    @Min(0)
+    @NotNull @Min(0)
     private Integer stock;
 
     public Long getSkuId() {

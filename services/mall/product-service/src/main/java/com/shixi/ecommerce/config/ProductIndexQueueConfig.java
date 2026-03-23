@@ -31,8 +31,6 @@ public class ProductIndexQueueConfig {
 
     @Bean
     public Binding productIndexBinding(Queue productIndexQueue, DirectExchange productIndexExchange) {
-        return BindingBuilder.bind(productIndexQueue)
-                .to(productIndexExchange)
-                .with(PRODUCT_INDEX_ROUTING_KEY);
+        return BindingBuilder.bind(productIndexQueue).to(productIndexExchange).with(PRODUCT_INDEX_ROUTING_KEY);
     }
 }

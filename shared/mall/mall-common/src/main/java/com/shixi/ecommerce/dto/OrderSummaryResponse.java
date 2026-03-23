@@ -1,12 +1,11 @@
 package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.OrderStatus;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * ¶©µ¥ÕªÒªÏìÓ¦¡£
+ * Order summary response.
  *
  * @author shixi
  * @date 2026-03-20
@@ -17,10 +16,7 @@ public class OrderSummaryResponse {
     private BigDecimal totalAmount;
     private LocalDateTime createdAt;
 
-    public OrderSummaryResponse(String orderNo,
-                                OrderStatus status,
-                                BigDecimal totalAmount,
-                                LocalDateTime createdAt) {
+    public OrderSummaryResponse(String orderNo, OrderStatus status, BigDecimal totalAmount, LocalDateTime createdAt) {
         this.orderNo = orderNo;
         this.status = status;
         this.totalAmount = totalAmount;

@@ -27,10 +27,9 @@ public class OrderEventPublisher {
      */
     public void publishOrderCreated(String orderNo) {
         publishAfterCommit(() -> {
-            rabbitTemplate.convertAndSend(RabbitConfig.ORDER_EVENTS_EXCHANGE,
-                    RabbitConfig.ROUTING_ORDER_CREATED, orderNo);
-            rabbitTemplate.convertAndSend(RabbitConfig.ORDER_DELAY_EXCHANGE,
-                    RabbitConfig.ROUTING_ORDER_DELAY, orderNo);
+            rabbitTemplate.convertAndSend(
+                    RabbitConfig.ORDER_EVENTS_EXCHANGE, RabbitConfig.ROUTING_ORDER_CREATED, orderNo);
+            rabbitTemplate.convertAndSend(RabbitConfig.ORDER_DELAY_EXCHANGE, RabbitConfig.ROUTING_ORDER_DELAY, orderNo);
         });
     }
 
@@ -40,8 +39,8 @@ public class OrderEventPublisher {
      * @param orderNo 订单号
      */
     public void publishOrderPaid(String orderNo) {
-        publishAfterCommit(() -> rabbitTemplate.convertAndSend(RabbitConfig.ORDER_EVENTS_EXCHANGE,
-                RabbitConfig.ROUTING_ORDER_PAID, orderNo));
+        publishAfterCommit(() -> rabbitTemplate.convertAndSend(
+                RabbitConfig.ORDER_EVENTS_EXCHANGE, RabbitConfig.ROUTING_ORDER_PAID, orderNo));
     }
 
     /**
@@ -50,8 +49,8 @@ public class OrderEventPublisher {
      * @param orderNo 订单号
      */
     public void publishOrderShipped(String orderNo) {
-        publishAfterCommit(() -> rabbitTemplate.convertAndSend(RabbitConfig.ORDER_EVENTS_EXCHANGE,
-                RabbitConfig.ROUTING_ORDER_SHIPPED, orderNo));
+        publishAfterCommit(() -> rabbitTemplate.convertAndSend(
+                RabbitConfig.ORDER_EVENTS_EXCHANGE, RabbitConfig.ROUTING_ORDER_SHIPPED, orderNo));
     }
 
     /**
@@ -60,8 +59,8 @@ public class OrderEventPublisher {
      * @param orderNo 订单号
      */
     public void publishOrderCompleted(String orderNo) {
-        publishAfterCommit(() -> rabbitTemplate.convertAndSend(RabbitConfig.ORDER_EVENTS_EXCHANGE,
-                RabbitConfig.ROUTING_ORDER_COMPLETED, orderNo));
+        publishAfterCommit(() -> rabbitTemplate.convertAndSend(
+                RabbitConfig.ORDER_EVENTS_EXCHANGE, RabbitConfig.ROUTING_ORDER_COMPLETED, orderNo));
     }
 
     private void publishAfterCommit(Runnable action) {

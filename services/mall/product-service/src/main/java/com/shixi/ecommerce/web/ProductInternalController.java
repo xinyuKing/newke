@@ -4,14 +4,13 @@ import com.shixi.ecommerce.dto.ProductBatchRequest;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.service.ProductService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * 商品内部接口，供购物车、订单等服务调用。

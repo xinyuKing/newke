@@ -1,16 +1,10 @@
-﻿package com.nowcoder.community.service;
+package com.nowcoder.community.service;
 
 import com.nowcoder.community.client.UserClient;
 import com.nowcoder.community.entity.User;
 import com.nowcoder.community.util.ApiResponseUtils;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.RedisKeyUtil;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.SessionCallback;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -19,6 +13,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.stereotype.Service;
 
 /**
  * 关注关系服务。
@@ -138,19 +136,22 @@ public class FollowService implements CommunityConstant {
      * @param follow     true 表示关注，false 表示取消关注
      */
     private void executeFollowTransaction(int userId, int entityType, int entityId, boolean follow) {
-        redisTemplate.execute((SessionCallback<Object>) operations -> {
-            String followeeKey = RedisKeyUtil.getFolloweeKey(userId, entityType);
-            String followerKey = RedisKeyUtil.getFollowerKey(entityType, entityId);
-            operations.multi();
-            if (follow) {
-                double score = System.currentTimeMillis();
-                operations.opsForZSet().add(followeeKey, entityId, score);
-                operations.opsForZSet().add(followerKey, userId, score);
-            } else {
-                operations.opsForZSet().remove(followeeKey, entityId);
-                operations.opsForZSet().remove(followerKey, userId);
+        redisTemplate.execute(new SessionCallback<>() {
+            @Override
+            public Object execute(RedisOperations operations) {
+                String followeeKey = RedisKeyUtil.getFolloweeKey(userId, entityType);
+                String followerKey = RedisKeyUtil.getFollowerKey(entityType, entityId);
+                operations.multi();
+                if (follow) {
+                    double score = System.currentTimeMillis();
+                    operations.opsForZSet().add(followeeKey, entityId, score);
+                    operations.opsForZSet().add(followerKey, userId, score);
+                } else {
+                    operations.opsForZSet().remove(followeeKey, entityId);
+                    operations.opsForZSet().remove(followerKey, userId);
+                }
+                return operations.exec();
             }
-            return operations.exec();
         });
     }
 

@@ -8,14 +8,18 @@ import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.HostHolder;
 import com.nowcoder.community.util.RedisKeyUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/likes")
@@ -71,8 +75,7 @@ public class LikeApiController implements CommunityConstant {
     }
 
     @GetMapping("/count")
-    public ApiResponse<Long> count(@RequestParam("entityType") int entityType,
-                                   @RequestParam("entityId") int entityId) {
+    public ApiResponse<Long> count(@RequestParam("entityType") int entityType, @RequestParam("entityId") int entityId) {
         return ApiResponse.success(likeService.findEntityLikeCount(entityType, entityId));
     }
 
@@ -84,9 +87,10 @@ public class LikeApiController implements CommunityConstant {
     }
 
     @GetMapping("/status")
-    public ApiResponse<Integer> status(@RequestParam("userId") int userId,
-                                       @RequestParam("entityType") int entityType,
-                                       @RequestParam("entityId") int entityId) {
+    public ApiResponse<Integer> status(
+            @RequestParam("userId") int userId,
+            @RequestParam("entityType") int entityType,
+            @RequestParam("entityId") int entityId) {
         return ApiResponse.success(likeService.findEntityLikeStatus(userId, entityType, entityId));
     }
 

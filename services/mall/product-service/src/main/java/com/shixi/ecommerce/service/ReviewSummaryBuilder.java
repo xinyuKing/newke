@@ -1,12 +1,11 @@
 package com.shixi.ecommerce.service;
 
 import com.shixi.ecommerce.domain.Review;
-import org.springframework.stereotype.Component;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
 
 /**
  * 评价摘要构建器，用于输出简要评论摘要。
@@ -16,12 +15,10 @@ import java.util.stream.Collectors;
  */
 @Component
 public class ReviewSummaryBuilder {
-    private static final List<String> POSITIVE_KEYWORDS = List.of(
-            "好", "满意", "推荐", "质量", "速度", "快", "便宜", "不错", "服务", "nice", "good", "great"
-    );
-    private static final List<String> NEGATIVE_KEYWORDS = List.of(
-            "差", "慢", "坏", "失望", "破损", "不满意", "漏发", "退款", "退货", "poor", "bad", "slow"
-    );
+    private static final List<String> POSITIVE_KEYWORDS =
+            List.of("好", "满意", "推荐", "质量", "速度", "快", "便宜", "不错", "服务", "nice", "good", "great");
+    private static final List<String> NEGATIVE_KEYWORDS =
+            List.of("差", "慢", "坏", "失望", "破损", "不满意", "漏发", "退款", "退货", "poor", "bad", "slow");
 
     /**
      * 生成商品评价摘要。
@@ -65,14 +62,14 @@ public class ReviewSummaryBuilder {
                 neutral,
                 negative,
                 posKeywords.isBlank() ? "无" : posKeywords,
-                negKeywords.isBlank() ? "无" : negKeywords
-        );
+                negKeywords.isBlank() ? "无" : negKeywords);
     }
 
     private String topKeywords(List<Review> reviews, List<String> keywords) {
         Map<String, Integer> counter = new HashMap<>();
         for (Review review : reviews) {
-            String content = review.getContent() == null ? "" : review.getContent().toLowerCase();
+            String content =
+                    review.getContent() == null ? "" : review.getContent().toLowerCase();
             for (String keyword : keywords) {
                 if (content.contains(keyword)) {
                     counter.put(keyword, counter.getOrDefault(keyword, 0) + 1);

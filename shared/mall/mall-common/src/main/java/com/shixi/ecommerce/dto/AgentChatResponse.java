@@ -2,7 +2,6 @@ package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.IntentType;
 import com.shixi.ecommerce.domain.SessionState;
-
 import java.util.List;
 
 public class AgentChatResponse {
@@ -12,7 +11,8 @@ public class AgentChatResponse {
     private String reply;
     private List<AgentResult> agentResults;
 
-    public AgentChatResponse(String sessionId, SessionState state, IntentType intent, String reply, List<AgentResult> agentResults) {
+    public AgentChatResponse(
+            String sessionId, SessionState state, IntentType intent, String reply, List<AgentResult> agentResults) {
         this.sessionId = sessionId;
         this.state = state;
         this.intent = intent;

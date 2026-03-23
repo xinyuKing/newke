@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.ChatSessionStatus;
-
 import java.time.LocalDateTime;
 
 public class ChatSessionResponse {
@@ -11,7 +10,8 @@ public class ChatSessionResponse {
     private ChatSessionStatus status;
     private LocalDateTime updatedAt;
 
-    public ChatSessionResponse(String sessionId, Long userId, Long supportId, ChatSessionStatus status, LocalDateTime updatedAt) {
+    public ChatSessionResponse(
+            String sessionId, Long userId, Long supportId, ChatSessionStatus status, LocalDateTime updatedAt) {
         this.sessionId = sessionId;
         this.userId = userId;
         this.supportId = supportId;

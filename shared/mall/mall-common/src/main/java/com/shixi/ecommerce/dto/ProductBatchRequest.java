@@ -1,7 +1,6 @@
 package com.shixi.ecommerce.dto;
 
 import jakarta.validation.constraints.NotEmpty;
-
 import java.util.List;
 
 /**

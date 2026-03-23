@@ -1,17 +1,25 @@
 package com.shixi.ecommerce.domain;
 
-import jakarta.persistence.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "product_review", indexes = {
-        @Index(name = "idx_review_product", columnList = "productId"),
-        @Index(name = "idx_review_user", columnList = "userId"),
-        @Index(name = "idx_review_product_user", columnList = "productId,userId", unique = true),
-        @Index(name = "idx_review_product_created", columnList = "productId,createdAt"),
-        @Index(name = "idx_review_product_rating_created", columnList = "productId,rating,createdAt")
-})
+@Table(
+        name = "product_review",
+        indexes = {
+            @Index(name = "idx_review_product", columnList = "productId"),
+            @Index(name = "idx_review_user", columnList = "userId"),
+            @Index(name = "idx_review_product_user", columnList = "productId,userId", unique = true),
+            @Index(name = "idx_review_product_created", columnList = "productId,createdAt"),
+            @Index(name = "idx_review_product_rating_created", columnList = "productId,rating,createdAt")
+        })
 public class Review {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

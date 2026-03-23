@@ -4,15 +4,14 @@ import com.nowcoder.community.entity.Event;
 import com.nowcoder.community.event.EventProducer;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.CommunityUtil;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
-
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * 分享图片控制器。
@@ -25,10 +24,11 @@ public class ShareController implements CommunityConstant {
     private final String contextPath;
     private final String shareBucketUrl;
 
-    public ShareController(EventProducer eventProducer,
-                           @Value("${community.path.domain}") String domain,
-                           @Value("${server.servlet.context-path}") String contextPath,
-                           @Value("${qiniu.bucket.share.url}") String shareBucketUrl) {
+    public ShareController(
+            EventProducer eventProducer,
+            @Value("${community.path.domain}") String domain,
+            @Value("${server.servlet.context-path}") String contextPath,
+            @Value("${qiniu.bucket.share.url}") String shareBucketUrl) {
         this.eventProducer = eventProducer;
         this.domain = domain;
         this.contextPath = contextPath;
@@ -79,12 +79,9 @@ public class ShareController implements CommunityConstant {
                 return false;
             }
 
-            int basePort = base.getPort() == -1
-                    ? ("https".equalsIgnoreCase(base.getScheme()) ? 443 : 80)
-                    : base.getPort();
-            int targetPort = target.getPort() == -1
-                    ? ("https".equalsIgnoreCase(scheme) ? 443 : 80)
-                    : target.getPort();
+            int basePort =
+                    base.getPort() == -1 ? ("https".equalsIgnoreCase(base.getScheme()) ? 443 : 80) : base.getPort();
+            int targetPort = target.getPort() == -1 ? ("https".equalsIgnoreCase(scheme) ? 443 : 80) : target.getPort();
             if (base.getHost() != null && basePort != targetPort) {
                 return false;
             }

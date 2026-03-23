@@ -16,8 +16,7 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final ReviewRateLimitFilter reviewRateLimitFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter,
-                          ReviewRateLimitFilter reviewRateLimitFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, ReviewRateLimitFilter reviewRateLimitFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.reviewRateLimitFilter = reviewRateLimitFilter;
     }
@@ -26,14 +25,18 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/internal/**").permitAll()
-                        .requestMatchers("/api/products/**", "/actuator/health").permitAll()
-                        .requestMatchers("/api/user/**").hasRole("USER")
-                        .requestMatchers("/api/merchant/**").hasRole("MERCHANT")
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/internal/**")
+                        .permitAll()
+                        .requestMatchers("/api/products/**", "/actuator/health")
+                        .permitAll()
+                        .requestMatchers("/api/user/**")
+                        .hasRole("USER")
+                        .requestMatchers("/api/merchant/**")
+                        .hasRole("MERCHANT")
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+                        .anyRequest()
+                        .authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(reviewRateLimitFilter, JwtAuthFilter.class);
         return http.build();

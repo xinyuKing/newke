@@ -5,13 +5,12 @@ import com.shixi.ecommerce.dto.ProductResponse;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import java.util.Arrays;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * 商品服务客户端，提供批量查询与本地缓存。
@@ -24,8 +23,7 @@ public class ProductClient {
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
-    public ProductClient(RestTemplate restTemplate,
-                         @Value("${product.service.url}") String baseUrl) {
+    public ProductClient(RestTemplate restTemplate, @Value("${product.service.url}") String baseUrl) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;
     }
@@ -46,7 +44,10 @@ public class ProductClient {
      * @param skuIds 商品 ID 列表
      * @return 商品信息列表
      */
-    @Cacheable(cacheNames = "productClientCache", key = "#skuIds", condition = "#skuIds != null && #skuIds.size() <= 50")
+    @Cacheable(
+            cacheNames = "productClientCache",
+            key = "#skuIds",
+            condition = "#skuIds != null && #skuIds.size() <= 50")
     @CircuitBreaker(name = "productClient", fallbackMethod = "getProductsFallback")
     @Retry(name = "productClient")
     @Bulkhead(name = "productClient")
@@ -56,8 +57,8 @@ public class ProductClient {
         }
         ProductBatchRequest request = new ProductBatchRequest();
         request.setSkuIds(skuIds);
-        ProductResponse[] response = restTemplate.postForObject(
-                baseUrl + "/internal/products/batch", request, ProductResponse[].class);
+        ProductResponse[] response =
+                restTemplate.postForObject(baseUrl + "/internal/products/batch", request, ProductResponse[].class);
         if (response == null) {
             return List.of();
         }

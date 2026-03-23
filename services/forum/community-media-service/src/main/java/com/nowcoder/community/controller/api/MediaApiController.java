@@ -1,10 +1,16 @@
-﻿package com.nowcoder.community.controller.api;
+package com.nowcoder.community.controller.api;
 
 import com.nowcoder.community.entity.User;
 import com.nowcoder.community.util.ApiResponse;
 import com.nowcoder.community.util.CommunityUtil;
 import com.nowcoder.community.util.HostHolder;
 import jakarta.annotation.PostConstruct;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,13 +20,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * 媒体上传接口。
@@ -48,14 +47,15 @@ public class MediaApiController {
     private Set<String> imageTypes;
     private Set<String> videoTypes;
 
-    public MediaApiController(HostHolder hostHolder,
-                              @Value("${community.path.media}") String mediaPath,
-                              @Value("${community.path.domain}") String domain,
-                              @Value("${server.servlet.context-path}") String contextPath,
-                              @Value("${community.media.allowed-image-types:jpg,jpeg,png,gif,webp}") String allowedImageTypes,
-                              @Value("${community.media.allowed-video-types:mp4,webm,ogg}") String allowedVideoTypes,
-                              @Value("${community.media.max-image-mb:10}") long maxImageMb,
-                              @Value("${community.media.max-video-mb:200}") long maxVideoMb) {
+    public MediaApiController(
+            HostHolder hostHolder,
+            @Value("${community.path.media}") String mediaPath,
+            @Value("${community.path.domain}") String domain,
+            @Value("${server.servlet.context-path}") String contextPath,
+            @Value("${community.media.allowed-image-types:jpg,jpeg,png,gif,webp}") String allowedImageTypes,
+            @Value("${community.media.allowed-video-types:mp4,webm,ogg}") String allowedVideoTypes,
+            @Value("${community.media.max-image-mb:10}") long maxImageMb,
+            @Value("${community.media.max-video-mb:200}") long maxVideoMb) {
         this.hostHolder = hostHolder;
         this.mediaPath = mediaPath;
         this.domain = domain;
@@ -84,8 +84,8 @@ public class MediaApiController {
      * @return 上传结果
      */
     @PostMapping("/upload")
-    public ApiResponse<Map<String, Object>> upload(@RequestParam("file") MultipartFile file,
-                                                   @RequestParam("usage") String usage) {
+    public ApiResponse<Map<String, Object>> upload(
+            @RequestParam("file") MultipartFile file, @RequestParam("usage") String usage) {
         User user = hostHolder.getUser();
         if (user == null) {
             return ApiResponse.error(403, "not_login");

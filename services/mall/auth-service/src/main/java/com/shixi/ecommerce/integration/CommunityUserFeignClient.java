@@ -9,10 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  *
  * <p>默认地址直接指向论坛用户中心，而不是统一网关。浏览器请求和服务内部请求的入口边界在这里被明确分开。</p>
  */
-@FeignClient(
-        name = "communityUserInternalClient",
-        url = "${community.user-service.base-url}"
-)
+@FeignClient(name = "communityUserInternalClient", url = "${community.user-service.base-url}")
 public interface CommunityUserFeignClient {
 
     /**

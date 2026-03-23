@@ -4,10 +4,9 @@ import com.shixi.ecommerce.domain.SessionState;
 import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillNames;
 import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRegistry;
 import com.shixi.ecommerce.service.agent.refund.skill.RefundSkillRequest;
-import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Service;
 
 @Service
 public class RefundMasterAgent {
@@ -16,10 +15,11 @@ public class RefundMasterAgent {
     private final ModelClient modelClient;
     private final RefundSkillRegistry skillRegistry;
 
-    public RefundMasterAgent(AgentProfileRegistry profileRegistry,
-                             RagService ragService,
-                             ModelClient modelClient,
-                             RefundSkillRegistry skillRegistry) {
+    public RefundMasterAgent(
+            AgentProfileRegistry profileRegistry,
+            RagService ragService,
+            ModelClient modelClient,
+            RefundSkillRegistry skillRegistry) {
         this.profileRegistry = profileRegistry;
         this.ragService = ragService;
         this.modelClient = modelClient;
@@ -78,6 +78,5 @@ public class RefundMasterAgent {
         return new MasterSummary(base + " feedback=" + String.join("; ", context.getFeedbackHints()), meta);
     }
 
-    private record MasterSummary(String text, String meta) {
-    }
+    private record MasterSummary(String text, String meta) {}
 }

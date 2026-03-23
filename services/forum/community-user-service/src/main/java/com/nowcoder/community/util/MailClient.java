@@ -1,4 +1,4 @@
-﻿package com.nowcoder.community.util;
+package com.nowcoder.community.util;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -20,8 +20,7 @@ public class MailClient {
     private final JavaMailSender mailSender;
     private final String from;
 
-    public MailClient(JavaMailSender mailSender,
-                      @Value("${spring.mail.username}") String from) {
+    public MailClient(JavaMailSender mailSender, @Value("${spring.mail.username}") String from) {
         this.mailSender = mailSender;
         this.from = from;
     }

@@ -8,13 +8,12 @@ import com.shixi.ecommerce.dto.OrderLineItem;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.List;
 
 /**
  * 库存服务客户端，提供单品/批量库存扣减与释放能力。
@@ -29,8 +28,7 @@ public class InventoryClient {
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
-    public InventoryClient(RestTemplate restTemplate,
-                           @Value("${inventory.service.url}") String baseUrl) {
+    public InventoryClient(RestTemplate restTemplate, @Value("${inventory.service.url}") String baseUrl) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;
     }
@@ -46,7 +44,8 @@ public class InventoryClient {
         InventoryDeductRequest request = new InventoryDeductRequest();
         request.setSkuId(skuId);
         request.setQuantity(quantity);
-        ApiResponse<?> response = restTemplate.postForObject(baseUrl + "/internal/inventory/deduct", request, ApiResponse.class);
+        ApiResponse<?> response =
+                restTemplate.postForObject(baseUrl + "/internal/inventory/deduct", request, ApiResponse.class);
         if (response == null || !response.isSuccess() || response.getData() == null) {
             return false;
         }
@@ -64,13 +63,16 @@ public class InventoryClient {
     @Bulkhead(name = "inventoryClient")
     public boolean deductBatch(List<OrderLineItem> items) {
         InventoryBatchRequest request = new InventoryBatchRequest();
-        request.setItems(items.stream().map(item -> {
-            InventoryDeductRequest req = new InventoryDeductRequest();
-            req.setSkuId(item.getSkuId());
-            req.setQuantity(item.getQuantity());
-            return req;
-        }).toList());
-        ApiResponse<?> response = restTemplate.postForObject(baseUrl + "/internal/inventory/deduct-batch", request, ApiResponse.class);
+        request.setItems(items.stream()
+                .map(item -> {
+                    InventoryDeductRequest req = new InventoryDeductRequest();
+                    req.setSkuId(item.getSkuId());
+                    req.setQuantity(item.getQuantity());
+                    return req;
+                })
+                .toList());
+        ApiResponse<?> response =
+                restTemplate.postForObject(baseUrl + "/internal/inventory/deduct-batch", request, ApiResponse.class);
         if (response == null || !response.isSuccess() || response.getData() == null) {
             return false;
         }
@@ -100,12 +102,14 @@ public class InventoryClient {
     @Bulkhead(name = "inventoryClient")
     public void releaseBatch(List<OrderLineItem> items) {
         InventoryBatchRequest request = new InventoryBatchRequest();
-        request.setItems(items.stream().map(item -> {
-            InventoryDeductRequest req = new InventoryDeductRequest();
-            req.setSkuId(item.getSkuId());
-            req.setQuantity(item.getQuantity());
-            return req;
-        }).toList());
+        request.setItems(items.stream()
+                .map(item -> {
+                    InventoryDeductRequest req = new InventoryDeductRequest();
+                    req.setSkuId(item.getSkuId());
+                    req.setQuantity(item.getQuantity());
+                    return req;
+                })
+                .toList());
         restTemplate.postForObject(baseUrl + "/internal/inventory/release-batch", request, ApiResponse.class);
     }
 

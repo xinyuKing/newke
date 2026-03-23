@@ -5,16 +5,15 @@ import com.nowcoder.community.entity.Comment;
 import com.nowcoder.community.entity.EntityCount;
 import com.nowcoder.community.util.CommunityConstant;
 import com.nowcoder.community.util.SensitiveFilter;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.HtmlUtils;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 评论领域服务。
@@ -26,9 +25,8 @@ public class CommentService implements CommunityConstant {
     private final SensitiveFilter sensitiveFilter;
     private final DiscussPostService discussPostService;
 
-    public CommentService(CommentMapper commentMapper,
-                          SensitiveFilter sensitiveFilter,
-                          DiscussPostService discussPostService) {
+    public CommentService(
+            CommentMapper commentMapper, SensitiveFilter sensitiveFilter, DiscussPostService discussPostService) {
         this.commentMapper = commentMapper;
         this.sensitiveFilter = sensitiveFilter;
         this.discussPostService = discussPostService;

@@ -4,11 +4,10 @@ import com.shixi.ecommerce.domain.AgentSession;
 import com.shixi.ecommerce.domain.IntentType;
 import com.shixi.ecommerce.domain.SessionState;
 import com.shixi.ecommerce.repository.AgentSessionRepository;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.util.UUID;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
 
 @Service
 public class AgentSessionService {

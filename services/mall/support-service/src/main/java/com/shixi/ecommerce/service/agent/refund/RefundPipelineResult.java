@@ -2,7 +2,6 @@ package com.shixi.ecommerce.service.agent.refund;
 
 import com.shixi.ecommerce.domain.SessionState;
 import com.shixi.ecommerce.dto.AgentResult;
-
 import java.util.List;
 
 public class RefundPipelineResult {

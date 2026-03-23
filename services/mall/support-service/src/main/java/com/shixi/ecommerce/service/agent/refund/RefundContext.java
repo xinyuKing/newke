@@ -2,7 +2,6 @@ package com.shixi.ecommerce.service.agent.refund;
 
 import com.shixi.ecommerce.domain.IntentType;
 import com.shixi.ecommerce.domain.SessionState;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
