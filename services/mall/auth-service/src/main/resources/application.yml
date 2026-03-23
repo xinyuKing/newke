@@ -2,6 +2,8 @@ server:
   port: 18081
 
 spring:
+  application:
+    name: auth-service
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ecommerce_auth?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USERNAME:root}
@@ -37,6 +39,10 @@ security:
     # 认证服务负责签发令牌，网关与其余商城服务必须使用同一密钥进行验签。
     secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
     expire-minutes: ${JWT_EXPIRE_MINUTES:120}
+
+internal:
+  auth:
+    secret: ${INTERNAL_API_SECRET:change-this-internal-api-secret-32-bytes}
 
 community:
   user-service:

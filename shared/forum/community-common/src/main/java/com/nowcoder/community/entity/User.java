@@ -134,13 +134,9 @@ public class User {
     public String toString() {
         return "User{" + "id="
                 + id + ", username='"
-                + username + '\'' + ", password='"
-                + password + '\'' + ", salt='"
-                + salt + '\'' + ", email='"
-                + email + '\'' + ", type="
+                + username + '\'' + ", password='[REDACTED]', salt='[REDACTED]', email='[REDACTED]', type="
                 + type + ", status="
-                + status + ", activationCode='"
-                + activationCode + '\'' + ", headerUrl='"
+                + status + ", activationCode='[REDACTED]', headerUrl='"
                 + headerUrl + '\'' + ", createTime="
                 + createTime + '}';
     }

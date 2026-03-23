@@ -3,6 +3,7 @@ package com.shixi.ecommerce.service.agent.refund.data;
 import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.dto.TrackingResponse;
+import com.shixi.ecommerce.internal.InternalAuthRestTemplateInterceptor;
 import java.time.Duration;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -23,11 +24,13 @@ public class RefundOrderDataClient {
 
     public RefundOrderDataClient(
             RestTemplateBuilder restTemplateBuilder,
+            InternalAuthRestTemplateInterceptor internalAuthRestTemplateInterceptor,
             @Value("${order.service.url:http://localhost:18084}") String baseUrl,
             @Value("${refund.order-data.timeout-ms:3000}") long timeoutMs) {
         this.restTemplate = restTemplateBuilder
                 .setConnectTimeout(Duration.ofMillis(Math.max(500L, timeoutMs)))
                 .setReadTimeout(Duration.ofMillis(Math.max(500L, timeoutMs)))
+                .additionalInterceptors(internalAuthRestTemplateInterceptor)
                 .build();
         this.baseUrl = normalizeBaseUrl(baseUrl);
     }

@@ -63,7 +63,7 @@ spring:
         - id: community-post
           uri: ${FORUM_POST_SERVICE_URL:http://localhost:8086}
           predicates:
-            - Path=/community,/community/,/community/index,/community/error,/community/denied,/community/search,/community/share/**,/community/discuss/**,/community/comment/**,/community/alpha/**,/community/api/posts,/community/api/posts/**,/community/api/comments,/community/api/comments/**,/community/api/search,/community/api/search/**,/community/api/internal/**
+            - Path=/community,/community/,/community/index,/community/error,/community/denied,/community/search,/community/share/**,/community/discuss/**,/community/comment/**,/community/alpha/**,/community/api/posts,/community/api/posts/**,/community/api/comments,/community/api/comments/**,/community/api/search,/community/api/search/**
         - id: product-gray
           uri: ${PRODUCT_GRAY_URL:http://localhost:18082}
           predicates:

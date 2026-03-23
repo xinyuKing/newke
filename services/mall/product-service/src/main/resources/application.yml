@@ -2,6 +2,8 @@ server:
   port: 18082
 
 spring:
+  application:
+    name: product-service
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ecommerce_product?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USERNAME:root}
@@ -68,9 +70,20 @@ search:
     read-timeout-ms: ${OPENSEARCH_READ_TIMEOUT_MS:3000}
 
 security:
+  client-ip:
+    trusted-proxies:
+      - ${TRUSTED_PROXY_CIDR_1:127.0.0.1/32}
+      - ${TRUSTED_PROXY_CIDR_2:::1/128}
   jwt:
     secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
     expire-minutes: ${JWT_EXPIRE_MINUTES:120}
+
+internal:
+  auth:
+    secret: ${INTERNAL_API_SECRET:change-this-internal-api-secret-32-bytes}
+    allowed-callers:
+      - order-service
+      - cart-service
 
 logging:
   level:

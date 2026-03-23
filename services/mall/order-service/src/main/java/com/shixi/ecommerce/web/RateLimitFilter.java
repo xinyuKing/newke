@@ -2,6 +2,7 @@ package com.shixi.ecommerce.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.common.ApiResponse;
+import com.shixi.ecommerce.network.ClientIpResolver;
 import com.shixi.ecommerce.security.JwtUser;
 import com.shixi.ecommerce.service.RateLimitService;
 import jakarta.servlet.FilterChain;
@@ -24,10 +25,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class RateLimitFilter extends OncePerRequestFilter {
     private final RateLimitService rateLimitService;
     private final ObjectMapper objectMapper;
+    private final ClientIpResolver clientIpResolver;
 
-    public RateLimitFilter(RateLimitService rateLimitService, ObjectMapper objectMapper) {
+    public RateLimitFilter(
+            RateLimitService rateLimitService, ObjectMapper objectMapper, ClientIpResolver clientIpResolver) {
         this.rateLimitService = rateLimitService;
         this.objectMapper = objectMapper;
+        this.clientIpResolver = clientIpResolver;
     }
 
     @Override
@@ -43,7 +47,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         Long userId = resolveUserId();
-        String ip = resolveClientIp(request);
+        String ip = clientIpResolver.resolve(request);
 
         boolean allowUser = rateLimitService.allowUser(userId);
         boolean allowIp = rateLimitService.allowIp(ip);
@@ -63,17 +67,5 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return user.getUserId();
         }
         return null;
-    }
-
-    private String resolveClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp.trim();
-        }
-        return request.getRemoteAddr();
     }
 }

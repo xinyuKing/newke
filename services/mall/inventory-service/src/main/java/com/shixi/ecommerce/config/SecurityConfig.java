@@ -1,5 +1,8 @@
 package com.shixi.ecommerce.config;
 
+import com.shixi.ecommerce.internal.InternalAuthProperties;
+import com.shixi.ecommerce.internal.InternalAuthSigner;
+import com.shixi.ecommerce.internal.InternalRequestAuthenticationFilter;
 import com.shixi.ecommerce.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,16 +22,27 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http, InternalRequestAuthenticationFilter internalRequestAuthenticationFilter)
+            throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/internal/**", "/actuator/health")
+                .authorizeHttpRequests(auth -> auth.requestMatchers("/internal/**")
+                        .hasRole("INTERNAL")
+                        .requestMatchers("/actuator/health")
                         .permitAll()
                         .requestMatchers("/api/inventory/**")
                         .hasAnyRole("MERCHANT", "ADMIN")
                         .anyRequest()
                         .authenticated())
+                .addFilterBefore(internalRequestAuthenticationFilter, JwtAuthFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    @Bean
+    public InternalRequestAuthenticationFilter internalRequestAuthenticationFilter(
+            InternalAuthProperties internalAuthProperties, InternalAuthSigner internalAuthSigner) {
+        return new InternalRequestAuthenticationFilter(internalAuthProperties, internalAuthSigner);
     }
 }

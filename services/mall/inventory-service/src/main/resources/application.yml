@@ -2,6 +2,8 @@ server:
   port: 18083
 
 spring:
+  application:
+    name: inventory-service
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/ecommerce_inventory?useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USERNAME:root}
@@ -40,6 +42,13 @@ security:
   jwt:
     secret: ${JWT_SECRET:change-this-secret-key-32-bytes-min}
     expire-minutes: ${JWT_EXPIRE_MINUTES:120}
+
+internal:
+  auth:
+    secret: ${INTERNAL_API_SECRET:change-this-internal-api-secret-32-bytes}
+    allowed-callers:
+      - order-service
+      - product-service
 
 logging:
   level:
