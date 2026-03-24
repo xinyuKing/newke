@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
@@ -22,7 +23,14 @@ public class IdempotentRecord {
     @Column(nullable = false, length = 128)
     private String bizKey;
 
+    @Column(nullable = false)
+    private boolean completed;
+
+    @Lob
+    private String responsePayload;
+
     private LocalDateTime createdAt;
+    private LocalDateTime completedAt;
 
     @PrePersist
     public void prePersist() {
@@ -41,7 +49,31 @@ public class IdempotentRecord {
         this.bizKey = bizKey;
     }
 
+    public boolean isCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(boolean completed) {
+        this.completed = completed;
+    }
+
+    public String getResponsePayload() {
+        return responsePayload;
+    }
+
+    public void setResponsePayload(String responsePayload) {
+        this.responsePayload = responsePayload;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
     }
 }

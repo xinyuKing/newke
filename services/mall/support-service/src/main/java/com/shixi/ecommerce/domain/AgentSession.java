@@ -25,6 +25,8 @@ public class AgentSession {
     @Column(nullable = false, length = 64)
     private String sessionId;
 
+    private Long userId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private SessionState state;
@@ -51,6 +53,14 @@ public class AgentSession {
 
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public SessionState getState() {

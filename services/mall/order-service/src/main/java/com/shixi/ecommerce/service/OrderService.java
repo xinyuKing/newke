@@ -127,9 +127,12 @@ public class OrderService {
             throw new BusinessException("Idempotency key required");
         }
         String bizKey = bizPrefix + ":" + userId + ":" + idempotencyKey;
-        boolean locked = idempotencyService.acquire(bizKey, Duration.ofMinutes(10));
-        if (!locked) {
-            throw new BusinessException("Duplicate order request");
+        IdempotencyService.AcquireResult acquireResult = idempotencyService.acquire(bizKey, Duration.ofMinutes(10));
+        if (acquireResult.shouldReplay()) {
+            return readCreateOrderResponse(acquireResult.replayPayload());
+        }
+        if (!acquireResult.locked()) {
+            throw new BusinessException("Duplicate order request in progress");
         }
         boolean deducted = false;
         List<OrderLineItem> pricedItems = null;
@@ -174,14 +177,27 @@ public class OrderService {
                 eventPublisher.publishOrderCreated(orderNo);
             }
             String primaryOrderNo = orderNos.get(0);
-            return new CreateOrderResponse(primaryOrderNo, OrderStatus.CREATED, orderNos, orderNos.size() > 1);
+            CreateOrderResponse response =
+                    new CreateOrderResponse(primaryOrderNo, OrderStatus.CREATED, orderNos, orderNos.size() > 1);
+            idempotencyService.complete(bizKey, writeCreateOrderResponse(response));
+            return response;
         } catch (RuntimeException ex) {
-            if (deducted) {
+            if (deducted && pricedItems != null) {
                 inventoryClient.releaseBatch(pricedItems);
             }
-            idempotencyService.release(bizKey);
+            if (acquireResult.locked()) {
+                idempotencyService.release(bizKey);
+            }
             throw ex;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasCompletedPurchase(Long userId, Long skuId) {
+        if (userId == null || skuId == null) {
+            return false;
+        }
+        return orderItemRepository.existsByUserIdAndSkuIdAndOrderStatus(userId, skuId, OrderStatus.COMPLETED);
     }
 
     /**
@@ -337,11 +353,19 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public OrderRefundSnapshotResponse getRefundSnapshot(String orderNo) {
+        return getRefundSnapshot(orderNo, null);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderRefundSnapshotResponse getRefundSnapshot(String orderNo, Long ownerUserId) {
         if (orderNo == null || orderNo.isBlank()) {
             throw new BusinessException("OrderNo required");
         }
         Order order =
                 orderRepository.findByOrderNo(orderNo).orElseThrow(() -> new BusinessException("Order not found"));
+        if (ownerUserId != null && !Objects.equals(order.getUserId(), ownerUserId)) {
+            throw new BusinessException("Order not found");
+        }
         List<OrderItemResponse> items = orderItemRepository.findByOrderNo(orderNo).stream()
                 .map(item -> new OrderItemResponse(item.getSkuId(), item.getQuantity(), item.getPrice()))
                 .collect(Collectors.toList());
@@ -356,6 +380,29 @@ public class OrderService {
                 order.getShippedAt(),
                 order.getCreatedAt(),
                 items);
+    }
+
+    @Transactional
+    public void updateRefundStatusInternal(String orderNo, OrderStatus toStatus) {
+        if (orderNo == null || orderNo.isBlank()) {
+            throw new BusinessException("OrderNo required");
+        }
+        if (toStatus == null) {
+            throw new BusinessException("Refund status required");
+        }
+        Order order =
+                orderRepository.findByOrderNo(orderNo).orElseThrow(() -> new BusinessException("Order not found"));
+        OrderStatus fromStatus = order.getStatus();
+        if (fromStatus == toStatus) {
+            return;
+        }
+        orderStateMachine.assertTransition(fromStatus, toStatus, "INTERNAL");
+        int updated = orderRepository.updateStatusIfMatch(orderNo, fromStatus, toStatus);
+        if (updated == 0) {
+            throw new BusinessException("Order refund status update failed: " + orderNo);
+        }
+        bumpOrderVersion(orderNo);
+        bumpOrderListVersion(order.getUserId());
     }
 
     /**
@@ -496,6 +543,22 @@ public class OrderService {
             total = total.add(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
         return total;
+    }
+
+    private String writeCreateOrderResponse(CreateOrderResponse response) {
+        try {
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Unable to persist idempotent order response", ex);
+        }
+    }
+
+    private CreateOrderResponse readCreateOrderResponse(String payload) {
+        try {
+            return objectMapper.readValue(payload, CreateOrderResponse.class);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Unable to restore idempotent order response", ex);
+        }
     }
 
     private String orderVersionKey(String orderNo) {

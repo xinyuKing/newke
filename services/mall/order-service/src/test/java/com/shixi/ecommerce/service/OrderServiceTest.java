@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,7 +72,7 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         orderService = new OrderService(
                 orderRepository,
                 orderItemRepository,
@@ -86,7 +88,7 @@ class OrderServiceTest {
     @Test
     void createOrderByItemsSplitsOrdersByMerchant() {
         when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
-                .thenReturn(true);
+                .thenReturn(IdempotencyService.AcquireResult.acquired());
         when(productClient.getProducts(List.of(1001L, 1002L)))
                 .thenReturn(List.of(
                         new ProductResponse(
@@ -118,6 +120,7 @@ class OrderServiceTest {
         verify(orderRepository).saveAll(ordersCaptor.capture());
         verify(orderItemRepository).saveAll(orderItemsCaptor.capture());
         verify(eventPublisher, times(2)).publishOrderCreated(anyString());
+        verify(idempotencyService).complete(anyString(), anyString());
 
         List<Order> savedOrders = ordersCaptor.getValue();
         List<OrderItem> savedItems = orderItemsCaptor.getValue();
@@ -129,6 +132,23 @@ class OrderServiceTest {
         assertEquals(response.getOrderNo(), response.getOrderNos().get(0));
         assertTrue(savedOrders.stream().map(Order::getMerchantId).allMatch(id -> id == 7L || id == 8L));
         assertTrue(savedItems.stream().map(OrderItem::getMerchantId).allMatch(id -> id == 7L || id == 8L));
+    }
+
+    @Test
+    void createOrderByItemsReplaysStoredResponse() throws Exception {
+        CreateOrderResponse cached =
+                new CreateOrderResponse("ORD-1", OrderStatus.CREATED, List.of("ORD-1", "ORD-2"), true);
+        String payload = new ObjectMapper().writeValueAsString(cached);
+        when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
+                .thenReturn(IdempotencyService.AcquireResult.replay(payload));
+
+        CreateOrderResponse response = orderService.createOrderByItems(
+                42L, "idem-1", "order:cart", List.of(new OrderLineItem(1001L, 1, BigDecimal.ZERO)));
+
+        assertEquals("ORD-1", response.getOrderNo());
+        assertEquals(List.of("ORD-1", "ORD-2"), response.getOrderNos());
+        assertTrue(response.isSplitByMerchant());
+        verifyNoInteractions(productClient, inventoryClient, orderRepository, orderItemRepository, eventPublisher);
     }
 
     @Test
@@ -157,6 +177,22 @@ class OrderServiceTest {
                 .updateShipInfoByMerchant("ORD-1", 7L, OrderStatus.PAID, OrderStatus.SHIPPED, "YTO", "TRACK-1");
         verify(orderRepository, never())
                 .updateShipInfo("ORD-1", OrderStatus.PAID, OrderStatus.SHIPPED, "YTO", "TRACK-1");
+    }
+
+    @Test
+    void updateRefundStatusInternalMovesOrderToRefunding() {
+        Order order = new Order();
+        order.setOrderNo("ORD-1");
+        order.setUserId(42L);
+        order.setStatus(OrderStatus.COMPLETED);
+        when(orderRepository.findByOrderNo("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.updateStatusIfMatch("ORD-1", OrderStatus.COMPLETED, OrderStatus.REFUNDING))
+                .thenReturn(1);
+
+        orderService.updateRefundStatusInternal("ORD-1", OrderStatus.REFUNDING);
+
+        verify(orderStateMachine).assertTransition(OrderStatus.COMPLETED, OrderStatus.REFUNDING, "INTERNAL");
+        verify(orderRepository).updateStatusIfMatch("ORD-1", OrderStatus.COMPLETED, OrderStatus.REFUNDING);
     }
 
     @Test

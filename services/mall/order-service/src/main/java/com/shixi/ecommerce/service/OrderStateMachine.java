@@ -23,6 +23,10 @@ public class OrderStateMachine {
         register(OrderStatus.PAID, OrderStatus.SHIPPED, Set.of("MERCHANT", "ADMIN", "SUPPORT"));
         register(OrderStatus.SHIPPED, OrderStatus.COMPLETED, Set.of("USER"));
         register(OrderStatus.CREATED, OrderStatus.CANCELED, Set.of("SYSTEM", "USER", "ADMIN", "SUPPORT"));
+        register(OrderStatus.PAID, OrderStatus.REFUNDING, Set.of("ADMIN", "SUPPORT", "SYSTEM", "INTERNAL"));
+        register(OrderStatus.SHIPPED, OrderStatus.REFUNDING, Set.of("ADMIN", "SUPPORT", "SYSTEM", "INTERNAL"));
+        register(OrderStatus.COMPLETED, OrderStatus.REFUNDING, Set.of("ADMIN", "SUPPORT", "SYSTEM", "INTERNAL"));
+        register(OrderStatus.REFUNDING, OrderStatus.REFUNDED, Set.of("ADMIN", "SUPPORT", "SYSTEM", "INTERNAL"));
     }
 
     /**

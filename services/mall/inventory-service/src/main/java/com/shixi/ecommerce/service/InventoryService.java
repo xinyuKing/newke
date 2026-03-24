@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class InventoryService {
+    private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
     private static final String STOCK_KEY_PREFIX = "stock:sku:";
     private static final String STOCK_LOCK_PREFIX = "lock:stock:sku:";
 
@@ -63,6 +66,12 @@ public class InventoryService {
         inventory.setAvailableStock(stock);
         inventoryRepository.save(inventory);
         redisTemplate.opsForValue().set(stockKey(skuId), String.valueOf(stock));
+    }
+
+    @Transactional
+    public void deleteStock(Long skuId) {
+        inventoryRepository.findBySkuId(skuId).ifPresent(inventoryRepository::delete);
+        redisTemplate.delete(stockKey(skuId));
     }
 
     /**
@@ -106,8 +115,13 @@ public class InventoryService {
      */
     @Transactional
     public void releaseStock(Long skuId, Integer qty) {
-        inventoryRepository.releaseStock(skuId, qty);
         String key = stockKey(skuId);
+        int updated = inventoryRepository.releaseStock(skuId, qty);
+        if (updated == 0) {
+            log.warn("Skip inventory cache increment for missing sku {}", skuId);
+            redisTemplate.delete(key);
+            return;
+        }
         if (Boolean.FALSE.equals(redisTemplate.hasKey(key))) {
             refreshCacheFromDb(skuId);
             return;

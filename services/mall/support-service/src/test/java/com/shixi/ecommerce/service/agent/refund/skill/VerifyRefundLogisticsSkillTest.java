@@ -24,9 +24,10 @@ class VerifyRefundLogisticsSkillTest {
         VerifyRefundLogisticsSkill skill = new VerifyRefundLogisticsSkill(client);
         RefundContext context = new RefundContext();
         context.putSlot(RefundSlots.ORDER_NO, "O20260323002");
-        when(client.getRefundSnapshot("O20260323002"))
+        context.putSlot(RefundSlots.REQUESTER_USER_ID, "88");
+        when(client.getRefundSnapshot("O20260323002", 88L))
                 .thenReturn(Optional.of(snapshot("O20260323002", OrderStatus.PAID, null)));
-        when(client.getTracking("O20260323002")).thenReturn(Optional.empty());
+        when(client.getTracking("O20260323002", 88L)).thenReturn(Optional.empty());
 
         RefundSkillOutput output =
                 skill.execute(RefundSkillRequest.builder(context).build());
@@ -41,9 +42,10 @@ class VerifyRefundLogisticsSkillTest {
         VerifyRefundLogisticsSkill skill = new VerifyRefundLogisticsSkill(client);
         RefundContext context = new RefundContext();
         context.putSlot(RefundSlots.ORDER_NO, "O20260323003");
-        when(client.getRefundSnapshot("O20260323003"))
+        context.putSlot(RefundSlots.REQUESTER_USER_ID, "88");
+        when(client.getRefundSnapshot("O20260323003", 88L))
                 .thenReturn(Optional.of(snapshot("O20260323003", OrderStatus.SHIPPED, "YT9988")));
-        when(client.getTracking("O20260323003"))
+        when(client.getTracking("O20260323003", 88L))
                 .thenReturn(Optional.of(new TrackingResponse("O20260323003", "YTO", "YT9988", "DELIVERED", List.of())));
 
         RefundSkillOutput output =

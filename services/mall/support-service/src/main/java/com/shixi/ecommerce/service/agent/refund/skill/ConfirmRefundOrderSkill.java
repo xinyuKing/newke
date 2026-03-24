@@ -27,11 +27,12 @@ public class ConfirmRefundOrderSkill extends AbstractRefundSkill<RefundSkillOutp
     public RefundSkillOutput execute(RefundSkillRequest request) {
         RefundContext context = requireContext(request);
         String orderNo = context.getSlot(RefundSlots.ORDER_NO);
+        Long ownerUserId = parseOwnerUserId(context);
         if (orderNo == null) {
             return new RefundSkillOutput("Ask customer to provide order number before refund handling.");
         }
         return orderDataClient
-                .getRefundSnapshot(orderNo)
+                .getRefundSnapshot(orderNo, ownerUserId)
                 .map(snapshot -> new RefundSkillOutput(buildPrompt(snapshot), buildUpdates(snapshot), null))
                 .orElseGet(() -> new RefundSkillOutput("Order " + orderNo
                         + " was not found in order service. Ask customer to verify the order number."));
@@ -73,5 +74,17 @@ public class ConfirmRefundOrderSkill extends AbstractRefundSkill<RefundSkillOutp
             case CREATED, PAID, SHIPPED, CANCELED -> RefundDeliveryStatus.NOT_RECEIVED.name();
             case COMPLETED, REFUNDING, REFUNDED -> RefundDeliveryStatus.DELIVERED.name();
         };
+    }
+
+    private Long parseOwnerUserId(RefundContext context) {
+        String raw = context.getSlot(RefundSlots.REQUESTER_USER_ID);
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(raw);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 }

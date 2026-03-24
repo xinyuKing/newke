@@ -49,7 +49,8 @@ public class SupportChatController {
 
     @GetMapping("/session/{sessionId}/messages")
     public ApiResponse<List<ChatMessageResponse>> messages(@PathVariable String sessionId) {
-        List<ChatMessageResponse> messages = chatService.listMessages(sessionId).stream()
+        Long supportId = currentUserService.getCurrentUser().getUserId();
+        List<ChatMessageResponse> messages = chatService.listMessagesForSupport(supportId, sessionId).stream()
                 .map(this::toMessageResponse)
                 .collect(Collectors.toList());
         return ApiResponse.ok(messages);
@@ -57,7 +58,8 @@ public class SupportChatController {
 
     @PostMapping("/session/{sessionId}/close")
     public ApiResponse<String> close(@PathVariable String sessionId) {
-        chatService.closeSession(sessionId);
+        Long supportId = currentUserService.getCurrentUser().getUserId();
+        chatService.closeSession(supportId, sessionId);
         return ApiResponse.ok("OK");
     }
 

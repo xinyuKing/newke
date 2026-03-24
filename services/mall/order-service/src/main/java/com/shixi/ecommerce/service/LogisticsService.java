@@ -37,7 +37,16 @@ public class LogisticsService {
 
     @Transactional(readOnly = true)
     public TrackingResponse queryInternal(String orderNo) {
-        return query(requireOrder(orderNo));
+        return queryInternal(orderNo, null);
+    }
+
+    @Transactional(readOnly = true)
+    public TrackingResponse queryInternal(String orderNo, Long ownerUserId) {
+        Order order = requireOrder(orderNo);
+        if (ownerUserId != null && !ownerUserId.equals(order.getUserId())) {
+            throw new BusinessException("Order not found");
+        }
+        return query(order);
     }
 
     private Order requireOrder(String orderNo) {

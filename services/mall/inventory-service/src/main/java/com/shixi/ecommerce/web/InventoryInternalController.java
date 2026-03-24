@@ -3,9 +3,12 @@ package com.shixi.ecommerce.web;
 import com.shixi.ecommerce.common.ApiResponse;
 import com.shixi.ecommerce.dto.InventoryBatchRequest;
 import com.shixi.ecommerce.dto.InventoryDeductRequest;
+import com.shixi.ecommerce.dto.InventoryInitRequest;
 import com.shixi.ecommerce.dto.InventoryReleaseRequest;
 import com.shixi.ecommerce.service.InventoryService;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +27,18 @@ public class InventoryInternalController {
 
     public InventoryInternalController(InventoryService inventoryService) {
         this.inventoryService = inventoryService;
+    }
+
+    @PostMapping("/init")
+    public ApiResponse<String> init(@Valid @RequestBody InventoryInitRequest request) {
+        inventoryService.initStock(request.getSkuId(), request.getStock());
+        return ApiResponse.ok("OK");
+    }
+
+    @DeleteMapping("/{skuId}")
+    public ApiResponse<String> delete(@PathVariable Long skuId) {
+        inventoryService.deleteStock(skuId);
+        return ApiResponse.ok("OK");
     }
 
     /**

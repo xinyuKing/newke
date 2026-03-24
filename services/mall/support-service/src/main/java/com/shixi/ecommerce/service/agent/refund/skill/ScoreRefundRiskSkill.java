@@ -43,9 +43,10 @@ public class ScoreRefundRiskSkill extends AbstractRefundSkill<RefundSkillOutput>
 
         int riskScore = assessTextRisk(text, reasons);
         String orderNo = context.getSlot(RefundSlots.ORDER_NO);
+        Long ownerUserId = parseOwnerUserId(context);
         if (orderNo != null) {
             OrderRefundSnapshotResponse snapshot =
-                    orderDataClient.getRefundSnapshot(orderNo).orElse(null);
+                    orderDataClient.getRefundSnapshot(orderNo, ownerUserId).orElse(null);
             if (snapshot != null) {
                 RefundRiskProfile profile = refundRiskDataService.load(snapshot.getUserId(), orderNo);
                 riskScore = Math.max(riskScore, assessOrderRisk(snapshot, profile, reasons, updates));
@@ -128,5 +129,17 @@ public class ScoreRefundRiskSkill extends AbstractRefundSkill<RefundSkillOutput>
             }
         }
         return false;
+    }
+
+    private Long parseOwnerUserId(RefundContext context) {
+        String raw = context.getSlot(RefundSlots.REQUESTER_USER_ID);
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(raw);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 }

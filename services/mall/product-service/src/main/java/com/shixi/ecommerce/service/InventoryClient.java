@@ -38,7 +38,11 @@ public class InventoryClient {
         InventoryInitRequest request = new InventoryInitRequest();
         request.setSkuId(skuId);
         request.setStock(stock);
-        restTemplate.postForObject(baseUrl + "/api/inventory/init", request, ApiResponse.class);
+        restTemplate.postForObject(baseUrl + "/internal/inventory/init", request, ApiResponse.class);
+    }
+
+    public void deleteStock(Long skuId) {
+        restTemplate.delete(baseUrl + "/internal/inventory/{skuId}", skuId);
     }
 
     private void initStockFallback(Long skuId, Integer stock, Throwable ex) {

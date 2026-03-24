@@ -35,31 +35,33 @@ public class AgentOrchestrator {
         }
     }
 
-    public AgentChatResponse chat(AgentChatRequest request) {
+    public AgentChatResponse chat(Long userId, String role, AgentChatRequest request) {
         IntentType intent = intentRecognizer.recognize(request.getMessage());
-        String sessionId =
-                sessionService.getOrCreate(request.getSessionId(), intent).getSessionId();
+        String sessionId = sessionService
+                .getOrCreate(request.getSessionId(), userId, intent)
+                .getSessionId();
 
         if (intent == IntentType.REFUND) {
-            return handleRefund(sessionId, intent, request.getMessage());
+            return handleRefund(userId, sessionId, intent, request.getMessage(), resolveRefundOrderOwner(userId, role));
         }
 
         Agent directAgent = agentsByType.get(intent.name());
         if (directAgent != null) {
-            return handleDirectAgent(sessionId, intent, directAgent, request.getMessage());
+            return handleDirectAgent(userId, sessionId, intent, directAgent, request.getMessage());
         }
 
-        sessionService.updateState(sessionId, SessionState.HANDOFF, intent);
+        sessionService.updateState(sessionId, userId, SessionState.HANDOFF, intent);
         String reply =
                 "Current automation supports refund, logistics, and basic consulting requests. Transfer to human support.";
         AgentResult routerResult = new AgentResult("ROUTER", "handoff", "intent=" + intent.name());
         return new AgentChatResponse(sessionId, SessionState.HANDOFF, intent, reply, List.of(routerResult));
     }
 
-    private AgentChatResponse handleRefund(String sessionId, IntentType intent, String message) {
+    private AgentChatResponse handleRefund(
+            Long userId, String sessionId, IntentType intent, String message, Long refundOrderOwnerUserId) {
         try {
-            RefundPipelineResult result = refundAgentPipeline.handle(sessionId, message);
-            sessionService.updateState(sessionId, result.getState(), intent);
+            RefundPipelineResult result = refundAgentPipeline.handle(sessionId, message, refundOrderOwnerUserId);
+            sessionService.updateState(sessionId, userId, result.getState(), intent);
             return new AgentChatResponse(
                     sessionId, result.getState(), intent, result.getReply(), result.getAgentResults());
         } catch (RuntimeException ex) {
@@ -77,19 +79,20 @@ public class AgentOrchestrator {
                             fallbackAgent.getType(), "handoff", "fallback=true,error=" + safeErrorMessage(fallbackEx)));
                 }
             }
-            sessionService.updateState(sessionId, SessionState.HANDOFF, intent);
+            sessionService.updateState(sessionId, userId, SessionState.HANDOFF, intent);
             return new AgentChatResponse(sessionId, SessionState.HANDOFF, intent, reply, results);
         }
     }
 
-    private AgentChatResponse handleDirectAgent(String sessionId, IntentType intent, Agent agent, String message) {
+    private AgentChatResponse handleDirectAgent(
+            Long userId, String sessionId, IntentType intent, Agent agent, String message) {
         try {
             String reply = agent.handle(sessionId, message);
-            sessionService.updateState(sessionId, SessionState.DONE, intent);
+            sessionService.updateState(sessionId, userId, SessionState.DONE, intent);
             AgentResult result = new AgentResult(agent.getType(), reply, "route=direct");
             return new AgentChatResponse(sessionId, SessionState.DONE, intent, reply, List.of(result));
         } catch (RuntimeException ex) {
-            sessionService.updateState(sessionId, SessionState.HANDOFF, intent);
+            sessionService.updateState(sessionId, userId, SessionState.HANDOFF, intent);
             String reply = "Automatic handling failed for this request. Transfer to human support.";
             AgentResult result =
                     new AgentResult(agent.getType(), "handoff", "route=direct-failed,error=" + safeErrorMessage(ex));
@@ -104,5 +107,12 @@ public class AgentOrchestrator {
         }
         String message = cursor.getMessage();
         return (message == null || message.isBlank()) ? cursor.getClass().getSimpleName() : message;
+    }
+
+    private Long resolveRefundOrderOwner(Long userId, String role) {
+        if ("USER".equals(role)) {
+            return userId;
+        }
+        return null;
     }
 }

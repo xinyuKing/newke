@@ -1,14 +1,9 @@
 package com.shixi.ecommerce.service;
 
 import com.shixi.ecommerce.common.BusinessException;
-import com.shixi.ecommerce.domain.CartItem;
 import com.shixi.ecommerce.dto.CreateOrderItemsRequest;
 import com.shixi.ecommerce.dto.CreateOrderResponse;
-import com.shixi.ecommerce.dto.OrderLineItem;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 购物车结算服务，负责将购物车条目转换为订单。
@@ -18,11 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class CheckoutService {
-    private final CartService cartService;
+    private static final String DUPLICATE_IN_PROGRESS_MESSAGE = "Duplicate order request in progress";
+
+    private final CheckoutRecordService checkoutRecordService;
     private final OrderClient orderClient;
 
-    public CheckoutService(CartService cartService, OrderClient orderClient) {
-        this.cartService = cartService;
+    public CheckoutService(CheckoutRecordService checkoutRecordService, OrderClient orderClient) {
+        this.checkoutRecordService = checkoutRecordService;
         this.orderClient = orderClient;
     }
 
@@ -33,21 +30,21 @@ public class CheckoutService {
      * @param idempotencyKey  幂等键
      * @return 下单结果
      */
-    @Transactional
     public CreateOrderResponse checkout(Long userId, String idempotencyKey) {
-        List<CartItem> items = cartService.listEntityItems(userId);
-        if (items.isEmpty()) {
-            throw new BusinessException("Cart is empty");
-        }
-        List<OrderLineItem> orderItems = items.stream()
-                .map(item -> new OrderLineItem(item.getSkuId(), item.getQuantity(), item.getPriceSnapshot()))
-                .collect(Collectors.toList());
+        CheckoutRecordService.CheckoutSnapshot snapshot = checkoutRecordService.prepare(userId, idempotencyKey);
         CreateOrderItemsRequest request = new CreateOrderItemsRequest();
         request.setUserId(userId);
         request.setIdempotencyKey(idempotencyKey);
-        request.setItems(orderItems);
-        CreateOrderResponse response = orderClient.createOrder(request);
-        cartService.clear(userId);
-        return response;
+        request.setItems(snapshot.items());
+        try {
+            CreateOrderResponse response = orderClient.createOrder(request);
+            checkoutRecordService.markCartCleared(userId, idempotencyKey);
+            return response;
+        } catch (BusinessException ex) {
+            if (!DUPLICATE_IN_PROGRESS_MESSAGE.equals(ex.getMessage())) {
+                checkoutRecordService.release(userId, idempotencyKey);
+            }
+            throw ex;
+        }
     }
 }

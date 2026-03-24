@@ -29,8 +29,9 @@ class ScoreRefundRiskSkillTest {
         RefundContext context = new RefundContext();
         context.setMessage("customer mentioned fraud and chargeback before");
         context.putSlot(RefundSlots.ORDER_NO, "O20260323004");
+        context.putSlot(RefundSlots.REQUESTER_USER_ID, "66");
 
-        when(orderDataClient.getRefundSnapshot("O20260323004"))
+        when(orderDataClient.getRefundSnapshot("O20260323004", 66L))
                 .thenReturn(
                         Optional.of(snapshot("O20260323004", OrderStatus.REFUNDING, new BigDecimal("3999.00"), 66L)));
         when(riskDataService.load(66L, "O20260323004")).thenReturn(new RefundRiskProfile(6, 4, 3, true));
@@ -51,8 +52,9 @@ class ScoreRefundRiskSkillTest {
         RefundContext context = new RefundContext();
         context.setMessage("want to return because size is not suitable");
         context.putSlot(RefundSlots.ORDER_NO, "O20260323005");
+        context.putSlot(RefundSlots.REQUESTER_USER_ID, "77");
 
-        when(orderDataClient.getRefundSnapshot("O20260323005"))
+        when(orderDataClient.getRefundSnapshot("O20260323005", 77L))
                 .thenReturn(Optional.of(snapshot("O20260323005", OrderStatus.PAID, new BigDecimal("59.00"), 77L)));
         when(riskDataService.load(77L, "O20260323005")).thenReturn(new RefundRiskProfile(0, 0, 0, false));
 

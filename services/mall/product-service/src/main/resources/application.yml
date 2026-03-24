@@ -58,6 +58,11 @@ inventory:
     # 商品只直接访问库存服务，避免跨层绕到网关。
     url: ${MALL_INVENTORY_SERVICE_URL:http://localhost:18083}
 
+order:
+  service:
+    # 评价资格校验直接访问订单服务，不经过网关。
+    url: ${MALL_ORDER_SERVICE_URL:http://localhost:18084}
+
 search:
   provider: ${SEARCH_PROVIDER:auto}
   fallback-to-db: ${SEARCH_FALLBACK:true}
@@ -108,14 +113,25 @@ resilience4j:
         minimum-number-of-calls: 10
         failure-rate-threshold: 50
         wait-duration-in-open-state: 5s
+      orderClient:
+        sliding-window-size: 50
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
   retry:
     instances:
       inventoryClient:
         max-attempts: 2
         wait-duration: 100ms
+      orderClient:
+        max-attempts: 2
+        wait-duration: 100ms
   bulkhead:
     instances:
       inventoryClient:
+        max-concurrent-calls: 50
+        max-wait-duration: 0
+      orderClient:
         max-concurrent-calls: 50
         max-wait-duration: 0
 

@@ -52,6 +52,8 @@ public class ChatService {
         if (session.getSupportId() == null) {
             session.setSupportId(supportId);
             sessionRepository.save(session);
+        } else if (!session.getSupportId().equals(supportId)) {
+            throw new BusinessException("Session assigned to another support");
         }
         return saveMessage(sessionId, ChatSenderRole.SUPPORT, supportId, content);
     }
@@ -67,7 +69,11 @@ public class ChatService {
         return sessionRepository.findByUserId(userId);
     }
 
-    public List<ChatMessage> listMessages(String sessionId) {
+    public List<ChatMessage> listMessagesForSupport(Long supportId, String sessionId) {
+        ChatSession session = getSessionOrThrow(sessionId);
+        if (session.getSupportId() != null && !session.getSupportId().equals(supportId)) {
+            throw new BusinessException("Session assigned to another support");
+        }
         return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
     }
 
@@ -80,8 +86,14 @@ public class ChatService {
     }
 
     @Transactional
-    public void closeSession(String sessionId) {
+    public void closeSession(Long supportId, String sessionId) {
         ChatSession session = getSessionOrThrow(sessionId);
+        if (session.getSupportId() != null && !session.getSupportId().equals(supportId)) {
+            throw new BusinessException("Session assigned to another support");
+        }
+        if (session.getSupportId() == null) {
+            session.setSupportId(supportId);
+        }
         session.setStatus(ChatSessionStatus.CLOSED);
         sessionRepository.save(session);
     }

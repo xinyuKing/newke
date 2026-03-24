@@ -19,8 +19,7 @@ public class RefundRiskDataService {
     }
 
     public RefundRiskProfile load(Long userId, String orderNo) {
-        boolean existingAfterSaleTicket =
-                orderNo != null && repository.findByOrderNo(orderNo).isPresent();
+        boolean existingAfterSaleTicket = orderNo != null && repository.existsByOrderNo(orderNo);
         if (userId == null) {
             return new RefundRiskProfile(0, 0, 0, existingAfterSaleTicket);
         }

@@ -5,54 +5,54 @@ import com.shixi.ecommerce.domain.AfterSaleStatus;
 import com.shixi.ecommerce.domain.AfterSaleTicket;
 import com.shixi.ecommerce.dto.AfterSaleCreateRequest;
 import com.shixi.ecommerce.dto.AfterSaleResponse;
+import com.shixi.ecommerce.dto.OrderItemResponse;
+import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.repository.AfterSaleTicketRepository;
 import com.shixi.ecommerce.service.order.OrderAccessService;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 鍞悗鏈嶅姟锛岃礋璐ｉ€€璐?閫€娆剧敵璇峰強鐘舵€佹祦杞€? *
- * @author shixi
- * @date 2026-03-20
- */
 @Service
 public class AfterSaleService {
+    private static final Set<AfterSaleStatus> CONSUMING_STATUSES =
+            EnumSet.complementOf(EnumSet.of(AfterSaleStatus.REJECTED));
+
     private final AfterSaleTicketRepository repository;
     private final OrderAccessService orderAccessService;
+    private final AfterSaleStateMachine stateMachine;
 
-    public AfterSaleService(AfterSaleTicketRepository repository, OrderAccessService orderAccessService) {
+    public AfterSaleService(
+            AfterSaleTicketRepository repository,
+            OrderAccessService orderAccessService,
+            AfterSaleStateMachine stateMachine) {
         this.repository = repository;
         this.orderAccessService = orderAccessService;
+        this.stateMachine = stateMachine;
     }
 
-    /**
-     * 鍒涘缓鍞悗鍗曘€?     *
-     * @param userId 鐢ㄦ埛 ID
-     * @param request 鍞悗璇锋眰
-     * @return 鍞悗鍝嶅簲
-     */
     @Transactional
     public AfterSaleResponse create(Long userId, AfterSaleCreateRequest request) {
-        orderAccessService.requireEligibleAfterSaleOrder(userId, request.getOrderNo());
-        repository.findByOrderNo(request.getOrderNo()).ifPresent(existing -> {
-            throw new BusinessException("After-sale already exists");
-        });
+        OrderRefundSnapshotResponse snapshot =
+                orderAccessService.requireEligibleAfterSaleOrder(userId, request.getOrderNo());
+        List<AfterSaleTicket> existingTickets = repository.findAllByOrderNo(request.getOrderNo());
+        validateCreateRequest(request, snapshot, existingTickets);
+
         AfterSaleTicket ticket = new AfterSaleTicket();
         ticket.setUserId(userId);
         ticket.setOrderNo(request.getOrderNo());
+        ticket.setSkuId(request.getSkuId());
+        ticket.setQuantity(resolveQuantity(request, snapshot, existingTickets));
         ticket.setReason(request.getReason());
         ticket.setStatus(AfterSaleStatus.INIT);
         repository.save(ticket);
         return toResponse(ticket);
     }
 
-    /**
-     * 鏌ヨ鐢ㄦ埛鍞悗鍒楄〃銆?     *
-     * @param userId 鐢ㄦ埛 ID
-     * @param status 鐘舵€佺瓫閫?     * @return 鍞悗鍒楄〃
-     */
     @Transactional(readOnly = true)
     public List<AfterSaleResponse> listUser(Long userId, AfterSaleStatus status) {
         List<AfterSaleTicket> tickets = status == null
@@ -61,10 +61,6 @@ public class AfterSaleService {
         return tickets.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    /**
-     * 鏌ヨ鍏ㄩ儴鍞悗鍒楄〃锛堝鏈嶄晶锛夈€?     *
-     * @param status 鐘舵€佺瓫閫?     * @return 鍞悗鍒楄〃
-     */
     @Transactional(readOnly = true)
     public List<AfterSaleResponse> listAll(AfterSaleStatus status) {
         List<AfterSaleTicket> tickets = status == null
@@ -73,21 +69,117 @@ public class AfterSaleService {
         return tickets.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-    /**
-     * 鏇存柊鍞悗鐘舵€侊紙瀹㈡湇渚э級銆?     *
-     * @param id 鍞悗鍗?ID
-     * @param status 鐘舵€?     * @return 鏇存柊鍚庣殑鍞悗鍗?     */
     @Transactional
     public AfterSaleResponse updateStatus(Long id, AfterSaleStatus status) {
         AfterSaleTicket ticket =
                 repository.findById(id).orElseThrow(() -> new BusinessException("After-sale not found"));
-        ticket.setStatus(status);
-        repository.save(ticket);
+        stateMachine.assertTransition(ticket.getStatus(), status);
+        if (ticket.getStatus() != status) {
+            ticket.setStatus(status);
+            repository.saveAndFlush(ticket);
+            orderAccessService.syncAfterSaleStatus(ticket.getOrderNo(), status);
+        }
         return toResponse(ticket);
+    }
+
+    private void validateCreateRequest(
+            AfterSaleCreateRequest request,
+            OrderRefundSnapshotResponse snapshot,
+            List<AfterSaleTicket> existingTickets) {
+        if (request.getQuantity() != null && request.getSkuId() == null) {
+            throw new BusinessException("SkuId required when quantity is specified");
+        }
+        if (request.getSkuId() == null) {
+            if (hasAnyConsumingTicket(existingTickets)) {
+                throw new BusinessException("After-sale already exists for this order");
+            }
+            return;
+        }
+        OrderItemResponse orderItem = findOrderItem(snapshot, request.getSkuId());
+        if (orderItem == null) {
+            throw new BusinessException("Sku not found in order");
+        }
+        if (hasConsumingWholeOrderTicket(existingTickets)) {
+            throw new BusinessException("After-sale already exists for this order");
+        }
+        int remainingQuantity = remainingQuantity(orderItem.getQuantity(), request.getSkuId(), existingTickets);
+        if (remainingQuantity <= 0) {
+            throw new BusinessException("After-sale quantity exhausted for this order item");
+        }
+        if (request.getQuantity() != null && request.getQuantity() > remainingQuantity) {
+            throw new BusinessException("After-sale quantity exceeds remaining purchasable quantity");
+        }
+    }
+
+    private boolean hasAnyConsumingTicket(List<AfterSaleTicket> existingTickets) {
+        for (AfterSaleTicket existing : existingTickets) {
+            if (isConsuming(existing)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasConsumingWholeOrderTicket(List<AfterSaleTicket> existingTickets) {
+        for (AfterSaleTicket existing : existingTickets) {
+            if (existing.getSkuId() == null && isConsuming(existing)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Integer resolveQuantity(
+            AfterSaleCreateRequest request,
+            OrderRefundSnapshotResponse snapshot,
+            List<AfterSaleTicket> existingTickets) {
+        if (request.getSkuId() == null) {
+            return null;
+        }
+        OrderItemResponse orderItem = findOrderItem(snapshot, request.getSkuId());
+        if (orderItem == null) {
+            throw new BusinessException("Sku not found in order");
+        }
+        int remainingQuantity = remainingQuantity(orderItem.getQuantity(), request.getSkuId(), existingTickets);
+        if (request.getQuantity() != null) {
+            return request.getQuantity();
+        }
+        return remainingQuantity;
+    }
+
+    private int remainingQuantity(Integer purchasedQuantity, Long skuId, List<AfterSaleTicket> existingTickets) {
+        int usedQuantity = 0;
+        for (AfterSaleTicket existing : existingTickets) {
+            if (!Objects.equals(existing.getSkuId(), skuId) || !isConsuming(existing)) {
+                continue;
+            }
+            usedQuantity += existing.getQuantity() == null ? 0 : existing.getQuantity();
+        }
+        return Math.max(0, (purchasedQuantity == null ? 0 : purchasedQuantity) - usedQuantity);
+    }
+
+    private boolean isConsuming(AfterSaleTicket ticket) {
+        return ticket != null && ticket.getStatus() != null && CONSUMING_STATUSES.contains(ticket.getStatus());
+    }
+
+    private OrderItemResponse findOrderItem(OrderRefundSnapshotResponse snapshot, Long skuId) {
+        if (snapshot.getItems() == null || skuId == null) {
+            return null;
+        }
+        return snapshot.getItems().stream()
+                .filter(item -> Objects.equals(item.getSkuId(), skuId))
+                .findFirst()
+                .orElse(null);
     }
 
     private AfterSaleResponse toResponse(AfterSaleTicket ticket) {
         return new AfterSaleResponse(
-                ticket.getId(), ticket.getOrderNo(), ticket.getReason(), ticket.getStatus(), ticket.getCreatedAt());
+                ticket.getId(),
+                ticket.getOrderNo(),
+                ticket.getSkuId(),
+                ticket.getQuantity(),
+                ticket.getReason(),
+                ticket.getStatus(),
+                ticket.getCreatedAt());
     }
 }

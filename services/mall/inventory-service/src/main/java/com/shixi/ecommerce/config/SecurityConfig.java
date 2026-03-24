@@ -31,8 +31,6 @@ public class SecurityConfig {
                         .hasRole("INTERNAL")
                         .requestMatchers("/actuator/health")
                         .permitAll()
-                        .requestMatchers("/api/inventory/**")
-                        .hasAnyRole("MERCHANT", "ADMIN")
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(internalRequestAuthenticationFilter, JwtAuthFilter.class)

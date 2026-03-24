@@ -1,6 +1,7 @@
 package com.shixi.ecommerce.service.order;
 
 import com.shixi.ecommerce.common.BusinessException;
+import com.shixi.ecommerce.domain.AfterSaleStatus;
 import com.shixi.ecommerce.domain.OrderStatus;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.service.agent.refund.data.RefundOrderDataClient;
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class OrderAccessService {
     private static final Set<OrderStatus> AFTER_SALE_ALLOWED_STATUSES =
-            EnumSet.of(OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.COMPLETED);
+            EnumSet.of(OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.COMPLETED, OrderStatus.REFUNDING);
 
     private final RefundOrderDataClient refundOrderDataClient;
 
@@ -21,7 +22,7 @@ public class OrderAccessService {
     }
 
     public OrderRefundSnapshotResponse requireOwnedOrder(Long userId, String orderNo) {
-        OrderRefundSnapshotResponse snapshot = refundOrderDataClient.requireRefundSnapshot(orderNo);
+        OrderRefundSnapshotResponse snapshot = refundOrderDataClient.requireRefundSnapshot(orderNo, userId);
         if (!Objects.equals(snapshot.getUserId(), userId)) {
             throw new BusinessException("Order not owned by user");
         }
@@ -34,5 +35,13 @@ public class OrderAccessService {
             throw new BusinessException("Order not eligible for after-sale");
         }
         return snapshot;
+    }
+
+    public void syncAfterSaleStatus(String orderNo, AfterSaleStatus status) {
+        if (status == AfterSaleStatus.APPROVED) {
+            refundOrderDataClient.updateRefundStatus(orderNo, OrderStatus.REFUNDING);
+        } else if (status == AfterSaleStatus.REFUNDED) {
+            refundOrderDataClient.updateRefundStatus(orderNo, OrderStatus.REFUNDED);
+        }
     }
 }

@@ -1,7 +1,11 @@
 package com.shixi.ecommerce.service.agent.refund.data;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.common.BusinessException;
+import com.shixi.ecommerce.domain.OrderStatus;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
+import com.shixi.ecommerce.dto.OrderRefundStatusUpdateRequest;
 import com.shixi.ecommerce.dto.TrackingResponse;
 import com.shixi.ecommerce.internal.InternalAuthRestTemplateInterceptor;
 import java.time.Duration;
@@ -18,6 +22,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class RefundOrderDataClient {
     private static final Logger logger = LoggerFactory.getLogger(RefundOrderDataClient.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final RestTemplate restTemplate;
     private final String baseUrl;
@@ -36,19 +41,63 @@ public class RefundOrderDataClient {
     }
 
     public Optional<OrderRefundSnapshotResponse> getRefundSnapshot(String orderNo) {
-        return getForObject("/internal/orders/{orderNo}/refund-snapshot", OrderRefundSnapshotResponse.class, orderNo);
+        return getRefundSnapshot(orderNo, null);
+    }
+
+    public Optional<OrderRefundSnapshotResponse> getRefundSnapshot(String orderNo, Long ownerUserId) {
+        return getForObject(
+                ownerUserId == null
+                        ? "/internal/orders/{orderNo}/refund-snapshot"
+                        : "/internal/orders/{orderNo}/refund-snapshot?ownerUserId={ownerUserId}",
+                OrderRefundSnapshotResponse.class,
+                ownerUserId == null ? new Object[] {orderNo} : new Object[] {orderNo, ownerUserId});
     }
 
     public OrderRefundSnapshotResponse requireRefundSnapshot(String orderNo) {
+        return requireRefundSnapshot(orderNo, null);
+    }
+
+    public OrderRefundSnapshotResponse requireRefundSnapshot(String orderNo, Long ownerUserId) {
         return requireForObject(
-                "/internal/orders/{orderNo}/refund-snapshot",
+                ownerUserId == null
+                        ? "/internal/orders/{orderNo}/refund-snapshot"
+                        : "/internal/orders/{orderNo}/refund-snapshot?ownerUserId={ownerUserId}",
                 OrderRefundSnapshotResponse.class,
                 "Order not found",
-                orderNo);
+                ownerUserId == null ? new Object[] {orderNo} : new Object[] {orderNo, ownerUserId});
     }
 
     public Optional<TrackingResponse> getTracking(String orderNo) {
-        return getForObject("/internal/orders/{orderNo}/tracking", TrackingResponse.class, orderNo);
+        return getTracking(orderNo, null);
+    }
+
+    public Optional<TrackingResponse> getTracking(String orderNo, Long ownerUserId) {
+        return getForObject(
+                ownerUserId == null
+                        ? "/internal/orders/{orderNo}/tracking"
+                        : "/internal/orders/{orderNo}/tracking?ownerUserId={ownerUserId}",
+                TrackingResponse.class,
+                ownerUserId == null ? new Object[] {orderNo} : new Object[] {orderNo, ownerUserId});
+    }
+
+    public void updateRefundStatus(String orderNo, OrderStatus status) {
+        if (baseUrl.isBlank()) {
+            throw new BusinessException("Order service base URL is not configured");
+        }
+        OrderRefundStatusUpdateRequest request = new OrderRefundStatusUpdateRequest();
+        request.setStatus(status);
+        try {
+            restTemplate.put(baseUrl + "/internal/orders/{orderNo}/refund-status", request, orderNo);
+        } catch (HttpStatusCodeException ex) {
+            if (ex.getStatusCode().is4xxClientError()) {
+                throw new BusinessException(extractBusinessMessage(ex, "Order refund status update rejected"));
+            }
+            logger.warn("refund order status update failed for order {}: {}", orderNo, ex.getMessage());
+            throw new BusinessException("Order service unavailable");
+        } catch (RestClientException ex) {
+            logger.warn("refund order status update failed for order {}: {}", orderNo, ex.getMessage());
+            throw new BusinessException("Order service unavailable");
+        }
     }
 
     private <T> Optional<T> getForObject(String path, Class<T> type, Object... uriVariables) {
@@ -89,6 +138,24 @@ public class RefundOrderDataClient {
             logger.warn("refund order data request failed for path {}: {}", path, ex.getMessage());
             throw new BusinessException("Order service unavailable");
         }
+    }
+
+    private String extractBusinessMessage(HttpStatusCodeException ex, String fallbackMessage) {
+        String message = ex.getResponseBodyAsString();
+        if (message == null || message.isBlank()) {
+            return fallbackMessage;
+        }
+        String normalized = message.trim();
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(normalized);
+            String apiMessage = root.path("message").asText(null);
+            if (apiMessage != null && !apiMessage.isBlank()) {
+                return apiMessage;
+            }
+        } catch (Exception ignored) {
+            // Fall back to the raw body for non-JSON responses.
+        }
+        return normalized;
     }
 
     private String normalizeBaseUrl(String source) {

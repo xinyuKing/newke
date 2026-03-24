@@ -32,14 +32,15 @@ class OrderAccessServiceTest {
 
     @Test
     void requireOwnedOrderRejectsForeignOrder() {
-        when(refundOrderDataClient.requireRefundSnapshot("ORD-1")).thenReturn(snapshot("ORD-1", 99L, OrderStatus.PAID));
+        when(refundOrderDataClient.requireRefundSnapshot("ORD-1", 42L))
+                .thenReturn(snapshot("ORD-1", 99L, OrderStatus.PAID));
 
         assertThrows(BusinessException.class, () -> orderAccessService.requireOwnedOrder(42L, "ORD-1"));
     }
 
     @Test
     void requireEligibleAfterSaleOrderRejectsIneligibleStatus() {
-        when(refundOrderDataClient.requireRefundSnapshot("ORD-1"))
+        when(refundOrderDataClient.requireRefundSnapshot("ORD-1", 42L))
                 .thenReturn(snapshot("ORD-1", 42L, OrderStatus.CREATED));
 
         assertThrows(BusinessException.class, () -> orderAccessService.requireEligibleAfterSaleOrder(42L, "ORD-1"));
@@ -48,7 +49,7 @@ class OrderAccessServiceTest {
     @Test
     void requireEligibleAfterSaleOrderReturnsSnapshotForOwnedPaidOrder() {
         OrderRefundSnapshotResponse snapshot = snapshot("ORD-1", 42L, OrderStatus.PAID);
-        when(refundOrderDataClient.requireRefundSnapshot("ORD-1")).thenReturn(snapshot);
+        when(refundOrderDataClient.requireRefundSnapshot("ORD-1", 42L)).thenReturn(snapshot);
 
         OrderRefundSnapshotResponse actual = orderAccessService.requireEligibleAfterSaleOrder(42L, "ORD-1");
 

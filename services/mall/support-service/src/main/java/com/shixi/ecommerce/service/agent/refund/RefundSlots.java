@@ -3,6 +3,7 @@ package com.shixi.ecommerce.service.agent.refund;
 public final class RefundSlots {
     public static final String ORDER_NO = "orderNo";
     public static final String USER_ID = "userId";
+    public static final String REQUESTER_USER_ID = "requesterUserId";
     public static final String ORDER_STATUS = "orderStatus";
     public static final String ORDER_AMOUNT = "orderAmount";
     public static final String ORDER_CREATED_AT = "orderCreatedAt";

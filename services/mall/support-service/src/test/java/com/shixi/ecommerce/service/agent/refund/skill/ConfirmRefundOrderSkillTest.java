@@ -35,6 +35,7 @@ class ConfirmRefundOrderSkillTest {
         ConfirmRefundOrderSkill skill = new ConfirmRefundOrderSkill(client);
         RefundContext context = new RefundContext();
         context.putSlot(RefundSlots.ORDER_NO, "O20260323001");
+        context.putSlot(RefundSlots.REQUESTER_USER_ID, "101");
         OrderRefundSnapshotResponse snapshot = new OrderRefundSnapshotResponse(
                 "O20260323001",
                 101L,
@@ -45,7 +46,7 @@ class ConfirmRefundOrderSkillTest {
                 null,
                 LocalDateTime.of(2026, 3, 23, 9, 30),
                 List.of());
-        when(client.getRefundSnapshot("O20260323001")).thenReturn(Optional.of(snapshot));
+        when(client.getRefundSnapshot("O20260323001", 101L)).thenReturn(Optional.of(snapshot));
 
         RefundSkillOutput output =
                 skill.execute(RefundSkillRequest.builder(context).build());

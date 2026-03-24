@@ -29,6 +29,19 @@
             <input v-model="ticketForm.orderNo" placeholder="Enter order number" />
           </label>
           <label>
+            <span>SKU ID (optional)</span>
+            <input v-model="ticketForm.skuId" placeholder="Submit a per-item after-sale if needed" />
+          </label>
+          <label>
+            <span>Quantity (optional)</span>
+            <input
+              v-model="ticketForm.quantity"
+              type="number"
+              min="1"
+              placeholder="Default is the full purchased quantity for that SKU"
+            />
+          </label>
+          <label>
             <span>Reason</span>
             <textarea v-model="ticketForm.reason" rows="5" placeholder="Describe the issue, product condition, or refund reason."></textarea>
           </label>
@@ -40,6 +53,9 @@
                 <strong>{{ ticket.orderNo }}</strong>
                 <span class="tag alt">{{ ticket.status }}</span>
               </div>
+              <p v-if="ticket.skuId || ticket.quantity" class="muted">
+                SKU: {{ ticket.skuId || "ALL" }} · Qty: {{ ticket.quantity || "ALL" }}
+              </p>
               <p>{{ ticket.reason }}</p>
               <span class="muted">{{ formatDateTime(ticket.createdAt) }}</span>
             </article>
@@ -109,6 +125,8 @@ const currentSessionId = ref("");
 const chatText = ref("");
 const ticketForm = reactive({
   orderNo: "",
+  skuId: "",
+  quantity: "",
   reason: ""
 });
 
@@ -176,9 +194,13 @@ const createTicket = async () => {
   message.value = "";
   const { data } = await mallApi.post("/user/after-sale", {
     orderNo: ticketForm.orderNo,
+    skuId: normalizeOptionalLong(ticketForm.skuId),
+    quantity: normalizeOptionalInt(ticketForm.quantity),
     reason: ticketForm.reason
   });
   if (data?.success) {
+    ticketForm.skuId = "";
+    ticketForm.quantity = "";
     ticketForm.reason = "";
     await loadTickets();
     message.value = "After-sale request submitted.";
@@ -196,6 +218,22 @@ watch(
   },
   { immediate: true }
 );
+
+const normalizeOptionalLong = (value) => {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return undefined;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const normalizeOptionalInt = (value) => {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return undefined;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
 
 onMounted(async () => {
   if (!auth.mallCanShop) return;

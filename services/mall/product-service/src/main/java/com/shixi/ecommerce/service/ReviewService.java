@@ -42,6 +42,7 @@ public class ReviewService {
     private final ReviewSummaryPublisher reviewSummaryPublisher;
     private final ReviewStatsPublisher reviewStatsPublisher;
     private final ProductService productService;
+    private final OrderClient orderClient;
     private final CacheManager cacheManager;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -51,6 +52,7 @@ public class ReviewService {
             ReviewSummaryPublisher reviewSummaryPublisher,
             ReviewStatsPublisher reviewStatsPublisher,
             ProductService productService,
+            OrderClient orderClient,
             CacheManager cacheManager,
             StringRedisTemplate redisTemplate,
             ObjectMapper objectMapper) {
@@ -58,6 +60,7 @@ public class ReviewService {
         this.reviewSummaryPublisher = reviewSummaryPublisher;
         this.reviewStatsPublisher = reviewStatsPublisher;
         this.productService = productService;
+        this.orderClient = orderClient;
         this.cacheManager = cacheManager;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
@@ -79,6 +82,9 @@ public class ReviewService {
             throw new BusinessException("Review already exists");
         }
         Product product = productService.getProductOrThrow(request.getProductId());
+        if (!orderClient.hasCompletedPurchase(userId, request.getProductId())) {
+            throw new BusinessException("Completed purchase required before review");
+        }
         Review review = new Review();
         review.setProductId(request.getProductId());
         review.setUserId(userId);

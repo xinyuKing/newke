@@ -30,17 +30,20 @@ public class VerifyRefundLogisticsSkill extends AbstractRefundSkill<RefundSkillO
     public RefundSkillOutput execute(RefundSkillRequest request) {
         RefundContext context = requireContext(request);
         String orderNo = context.getSlot(RefundSlots.ORDER_NO);
+        Long ownerUserId = parseOwnerUserId(context);
         if (orderNo == null) {
             return new RefundSkillOutput("Ask customer to provide order number before logistics verification.");
         }
 
-        Optional<OrderRefundSnapshotResponse> snapshotOptional = orderDataClient.getRefundSnapshot(orderNo);
+        Optional<OrderRefundSnapshotResponse> snapshotOptional =
+                orderDataClient.getRefundSnapshot(orderNo, ownerUserId);
         if (snapshotOptional.isEmpty()) {
             return new RefundSkillOutput(
                     "Order " + orderNo + " was not found in order service. Ask customer to verify the order number.");
         }
         OrderRefundSnapshotResponse snapshot = snapshotOptional.get();
-        TrackingResponse tracking = orderDataClient.getTracking(orderNo).orElse(null);
+        TrackingResponse tracking =
+                orderDataClient.getTracking(orderNo, ownerUserId).orElse(null);
         String deliveryStatus = resolveDeliveryStatus(context.getSlot(RefundSlots.DELIVERY_STATUS), snapshot, tracking);
         String action = resolveAction(snapshot, tracking, deliveryStatus);
 
@@ -115,5 +118,17 @@ public class VerifyRefundLogisticsSkill extends AbstractRefundSkill<RefundSkillO
                 || text.contains("completed")
                 || text.contains("\u7b7e\u6536")
                 || text.contains("\u5df2\u9001\u8fbe");
+    }
+
+    private Long parseOwnerUserId(RefundContext context) {
+        String raw = context.getSlot(RefundSlots.REQUESTER_USER_ID);
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(raw);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 }

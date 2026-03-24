@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
         name = "after_sale_ticket",
         indexes = {
             @Index(name = "idx_after_sale_order_no", columnList = "orderNo"),
+            @Index(name = "idx_after_sale_order_sku", columnList = "orderNo,skuId"),
             @Index(name = "idx_after_sale_user", columnList = "userId"),
             @Index(name = "idx_after_sale_user_status", columnList = "userId,status")
         })
@@ -31,6 +32,10 @@ public class AfterSaleTicket {
 
     @Column(nullable = false)
     private Long userId;
+
+    private Long skuId;
+
+    private Integer quantity;
 
     @Column(nullable = false, length = 256)
     private String reason;
@@ -72,6 +77,22 @@ public class AfterSaleTicket {
 
     public void setUserId(Long userId) {
         this.userId = userId;
+    }
+
+    public Long getSkuId() {
+        return skuId;
+    }
+
+    public void setSkuId(Long skuId) {
+        this.skuId = skuId;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
     }
 
     public String getReason() {

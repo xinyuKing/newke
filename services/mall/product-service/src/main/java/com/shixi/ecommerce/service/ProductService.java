@@ -18,6 +18,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -30,6 +32,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 商品领域服务，包含商品创建、查询与缓存策略。
@@ -39,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ProductService {
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 200;
     private static final Duration PRODUCT_CACHE_TTL = Duration.ofMinutes(5);
@@ -91,12 +96,34 @@ public class ProductService {
         product.setVideoUrl(request.getVideoUrl());
         product.setPrice(request.getPrice());
         product.setStatus(ProductStatus.ACTIVE);
-        productRepository.save(product);
+        productRepository.saveAndFlush(product);
+        boolean[] inventoryInitialized = {false};
         inventoryClient.initStock(product.getId(), request.getStock());
+        inventoryInitialized[0] = true;
+        registerInventoryRollbackCompensation(product.getId(), inventoryInitialized);
         bumpProductVersion(product.getId());
         bumpSearchVersion();
         productIndexPublisher.publishAfterCommit(product.getId());
         return productMapper.toResponse(product);
+    }
+
+    private void registerInventoryRollbackCompensation(Long productId, boolean[] inventoryInitialized) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_ROLLED_BACK || !inventoryInitialized[0]) {
+                    return;
+                }
+                try {
+                    inventoryClient.deleteStock(productId);
+                } catch (RuntimeException ex) {
+                    log.warn("Failed to compensate inventory for rolled back product {}", productId, ex);
+                }
+            }
+        });
     }
 
     @Cacheable(cacheNames = "activeProducts", key = "'all'", condition = "#page == null && #size == null")

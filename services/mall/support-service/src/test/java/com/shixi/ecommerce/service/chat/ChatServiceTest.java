@@ -58,6 +58,26 @@ class ChatServiceTest {
         assertEquals("hello", actual.get(0).getContent());
     }
 
+    @Test
+    void supportSendRejectsSessionAssignedToAnotherSupport() {
+        ChatSession session = session("SESSION-1", 42L);
+        session.setSupportId(9L);
+        when(sessionRepository.findBySessionId("SESSION-1")).thenReturn(Optional.of(session));
+
+        assertThrows(BusinessException.class, () -> chatService.supportSend(7L, "SESSION-1", "reply"));
+        verify(messageRepository, never()).save(org.mockito.ArgumentMatchers.any(ChatMessage.class));
+    }
+
+    @Test
+    void listMessagesForSupportRejectsForeignAssignedSession() {
+        ChatSession session = session("SESSION-1", 42L);
+        session.setSupportId(9L);
+        when(sessionRepository.findBySessionId("SESSION-1")).thenReturn(Optional.of(session));
+
+        assertThrows(BusinessException.class, () -> chatService.listMessagesForSupport(7L, "SESSION-1"));
+        verify(messageRepository, never()).findBySessionIdOrderByCreatedAtAsc("SESSION-1");
+    }
+
     private ChatSession session(String sessionId, Long userId) {
         ChatSession session = new ChatSession();
         session.setSessionId(sessionId);

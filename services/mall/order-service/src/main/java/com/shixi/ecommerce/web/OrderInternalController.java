@@ -3,6 +3,7 @@ package com.shixi.ecommerce.web;
 import com.shixi.ecommerce.dto.CreateOrderItemsRequest;
 import com.shixi.ecommerce.dto.CreateOrderResponse;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
+import com.shixi.ecommerce.dto.OrderRefundStatusUpdateRequest;
 import com.shixi.ecommerce.dto.TrackingResponse;
 import com.shixi.ecommerce.service.LogisticsService;
 import com.shixi.ecommerce.service.OrderService;
@@ -10,8 +11,10 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -44,12 +47,24 @@ public class OrderInternalController {
     }
 
     @GetMapping("/{orderNo}/refund-snapshot")
-    public OrderRefundSnapshotResponse refundSnapshot(@PathVariable String orderNo) {
-        return orderService.getRefundSnapshot(orderNo);
+    public OrderRefundSnapshotResponse refundSnapshot(
+            @PathVariable String orderNo, @RequestParam(required = false) Long ownerUserId) {
+        return orderService.getRefundSnapshot(orderNo, ownerUserId);
     }
 
     @GetMapping("/{orderNo}/tracking")
-    public TrackingResponse tracking(@PathVariable String orderNo) {
-        return logisticsService.queryInternal(orderNo);
+    public TrackingResponse tracking(@PathVariable String orderNo, @RequestParam(required = false) Long ownerUserId) {
+        return logisticsService.queryInternal(orderNo, ownerUserId);
+    }
+
+    @PutMapping("/{orderNo}/refund-status")
+    public void updateRefundStatus(
+            @PathVariable String orderNo, @Valid @RequestBody OrderRefundStatusUpdateRequest request) {
+        orderService.updateRefundStatusInternal(orderNo, request.getStatus());
+    }
+
+    @GetMapping("/review-eligibility")
+    public Boolean reviewEligibility(@RequestParam Long userId, @RequestParam Long skuId) {
+        return orderService.hasCompletedPurchase(userId, skuId);
     }
 }

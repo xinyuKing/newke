@@ -17,6 +17,10 @@ public interface AfterSaleTicketRepository extends JpaRepository<AfterSaleTicket
 
     Optional<AfterSaleTicket> findByOrderNo(String orderNo);
 
+    List<AfterSaleTicket> findAllByOrderNo(String orderNo);
+
+    boolean existsByOrderNo(String orderNo);
+
     List<AfterSaleTicket> findByStatusOrderByCreatedAtDesc(AfterSaleStatus status);
 
     List<AfterSaleTicket> findAllByOrderByCreatedAtDesc();

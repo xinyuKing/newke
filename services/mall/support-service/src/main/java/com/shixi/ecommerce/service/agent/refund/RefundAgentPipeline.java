@@ -62,7 +62,7 @@ public class RefundAgentPipeline {
         }
     }
 
-    public RefundPipelineResult handle(String sessionId, String message) {
+    public RefundPipelineResult handle(String sessionId, String message, Long refundOrderOwnerUserId) {
         String messageHash = hashMessage(message);
         if (messageHash != null) {
             boolean first = contextService.recordDedup(sessionId, messageHash, dedupTtl);
@@ -76,6 +76,9 @@ public class RefundAgentPipeline {
         RefundContext context = contextService.load(sessionId);
         context.setSessionId(sessionId);
         context.setMessage(message);
+        if (refundOrderOwnerUserId != null) {
+            context.putSlot(RefundSlots.REQUESTER_USER_ID, String.valueOf(refundOrderOwnerUserId));
+        }
 
         for (int attempt = 1; attempt <= maxLoop; attempt++) {
             List<AgentResult> results = new ArrayList<>();
