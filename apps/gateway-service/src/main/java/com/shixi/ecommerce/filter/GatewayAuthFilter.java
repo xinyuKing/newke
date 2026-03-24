@@ -45,26 +45,30 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        if (shouldSkipAuthentication(exchange)) {
-            return chain.filter(exchange);
+        ServerWebExchange sanitizedExchange = sanitizeIdentityHeaders(exchange);
+        if (shouldSkipAuthentication(sanitizedExchange)) {
+            return chain.filter(sanitizedExchange);
         }
 
-        String token = extractBearerToken(exchange);
+        String token = extractBearerToken(sanitizedExchange);
         if (token == null || !tokenProvider.validateToken(token)) {
-            return unauthorized(exchange);
+            return unauthorized(sanitizedExchange);
         }
 
         Long userId = tokenProvider.getUserId(token);
         String role = tokenProvider.getRole(token) == null
                 ? ""
                 : tokenProvider.getRole(token).name();
-        ServerHttpRequest request = exchange.getRequest()
+        ServerHttpRequest request = sanitizedExchange
+                .getRequest()
                 .mutate()
-                .header(properties.getUserIdHeader(), userId == null ? "" : String.valueOf(userId))
-                .header(properties.getRoleHeader(), role)
+                .headers(headers -> {
+                    headers.set(properties.getUserIdHeader(), userId == null ? "" : String.valueOf(userId));
+                    headers.set(properties.getRoleHeader(), role);
+                })
                 .build();
 
-        return chain.filter(exchange.mutate().request(request).build());
+        return chain.filter(sanitizedExchange.mutate().request(request).build());
     }
 
     @Override
@@ -137,5 +141,16 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
         } catch (JsonProcessingException ex) {
             return exchange.getResponse().setComplete();
         }
+    }
+
+    private ServerWebExchange sanitizeIdentityHeaders(ServerWebExchange exchange) {
+        ServerHttpRequest request = exchange.getRequest()
+                .mutate()
+                .headers(headers -> {
+                    headers.remove(properties.getUserIdHeader());
+                    headers.remove(properties.getRoleHeader());
+                })
+                .build();
+        return exchange.mutate().request(request).build();
     }
 }

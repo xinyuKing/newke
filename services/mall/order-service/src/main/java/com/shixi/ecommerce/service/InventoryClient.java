@@ -7,7 +7,6 @@ import com.shixi.ecommerce.dto.InventoryReleaseRequest;
 import com.shixi.ecommerce.dto.OrderLineItem;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import io.github.resilience4j.retry.annotation.Retry;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +58,6 @@ public class InventoryClient {
      * @return 是否扣减成功
      */
     @CircuitBreaker(name = "inventoryClient", fallbackMethod = "deductBatchFallback")
-    @Retry(name = "inventoryClient")
     @Bulkhead(name = "inventoryClient")
     public boolean deductBatch(List<OrderLineItem> items) {
         InventoryBatchRequest request = new InventoryBatchRequest();
@@ -98,7 +96,6 @@ public class InventoryClient {
      * @param items 订单行
      */
     @CircuitBreaker(name = "inventoryClient", fallbackMethod = "releaseBatchFallback")
-    @Retry(name = "inventoryClient")
     @Bulkhead(name = "inventoryClient")
     public void releaseBatch(List<OrderLineItem> items) {
         InventoryBatchRequest request = new InventoryBatchRequest();
@@ -114,10 +111,11 @@ public class InventoryClient {
     }
 
     private boolean deductBatchFallback(List<OrderLineItem> items, Throwable ex) {
-        throw new RuntimeException("Inventory service unavailable");
+        throw new IllegalStateException("Inventory service unavailable", ex);
     }
 
     private void releaseBatchFallback(List<OrderLineItem> items, Throwable ex) {
         log.error("Inventory release failed, items={}", items, ex);
+        throw new IllegalStateException("Inventory compensation failed", ex);
     }
 }

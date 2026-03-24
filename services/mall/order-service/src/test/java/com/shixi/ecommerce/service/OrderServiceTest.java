@@ -3,9 +3,11 @@ package com.shixi.ecommerce.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -227,5 +229,33 @@ class OrderServiceTest {
         verify(valueOperations).set(anyString(), anyString(), any(Duration.class));
         assertEquals(7L, response.getMerchantId());
         assertFalse(response.getItems().isEmpty());
+    }
+
+    @Test
+    void createOrderByItemsFailsFastWhenInventoryCompensationFails() {
+        when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
+                .thenReturn(IdempotencyService.AcquireResult.acquired());
+        when(productClient.getProducts(List.of(1001L)))
+                .thenReturn(List.of(new ProductResponse(
+                        1001L,
+                        7L,
+                        "Keyboard",
+                        "Low latency keyboard",
+                        null,
+                        new BigDecimal("99.00"),
+                        ProductStatus.ACTIVE)));
+        when(inventoryClient.deductBatch(any())).thenReturn(true);
+        when(orderRepository.saveAll(any())).thenThrow(new IllegalStateException("DB unavailable"));
+        doThrow(new IllegalStateException("Inventory compensation failed"))
+                .when(inventoryClient)
+                .releaseBatch(any());
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> orderService.createOrderByItems(
+                        42L, "idem-1", "order:cart", List.of(new OrderLineItem(1001L, 1, BigDecimal.ZERO))));
+
+        assertEquals("Inventory compensation failed", exception.getMessage());
+        verify(idempotencyService, never()).release(anyString());
     }
 }

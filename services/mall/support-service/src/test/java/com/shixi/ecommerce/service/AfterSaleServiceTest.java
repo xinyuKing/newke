@@ -3,6 +3,9 @@ package com.shixi.ecommerce.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,6 +21,7 @@ import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.repository.AfterSaleTicketRepository;
 import com.shixi.ecommerce.service.order.OrderAccessService;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +31,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 @ExtendWith(MockitoExtension.class)
 class AfterSaleServiceTest {
@@ -37,11 +43,22 @@ class AfterSaleServiceTest {
     @Mock
     private OrderAccessService orderAccessService;
 
+    @Mock
+    private StringRedisTemplate redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     private AfterSaleService afterSaleService;
 
     @BeforeEach
     void setUp() {
-        afterSaleService = new AfterSaleService(repository, orderAccessService, new AfterSaleStateMachine());
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient()
+                .when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+                .thenReturn(true);
+        afterSaleService =
+                new AfterSaleService(repository, orderAccessService, new AfterSaleStateMachine(), redisTemplate);
     }
 
     @Test
@@ -119,6 +136,16 @@ class AfterSaleServiceTest {
         afterSaleService.updateStatus(1L, AfterSaleStatus.APPROVED);
 
         verify(orderAccessService).syncAfterSaleStatus("ORD-1", AfterSaleStatus.APPROVED);
+    }
+
+    @Test
+    void createRejectsConcurrentRequestForSameOrder() {
+        AfterSaleCreateRequest request = request("ORD-1", 1001L, 1, "Damaged");
+        when(valueOperations.setIfAbsent(eq("lock:after-sale:create:ORD-1"), anyString(), any(Duration.class)))
+                .thenReturn(false);
+
+        assertThrows(BusinessException.class, () -> afterSaleService.create(42L, request));
+        verify(orderAccessService, never()).requireEligibleAfterSaleOrder(42L, "ORD-1");
     }
 
     private AfterSaleCreateRequest request(String orderNo, Long skuId, Integer quantity, String reason) {
