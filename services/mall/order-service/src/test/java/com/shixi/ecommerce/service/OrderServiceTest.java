@@ -22,6 +22,7 @@ import com.shixi.ecommerce.domain.OrderItem;
 import com.shixi.ecommerce.domain.OrderStatus;
 import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.dto.CreateOrderResponse;
+import com.shixi.ecommerce.dto.OrderAddressSnapshotResponse;
 import com.shixi.ecommerce.dto.OrderLineItem;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.OrderItemRepository;
@@ -56,10 +57,16 @@ class OrderServiceTest {
     private IdempotencyService idempotencyService;
 
     @Mock
+    private DuplicateOrderGuardService duplicateOrderGuardService;
+
+    @Mock
     private OrderEventPublisher eventPublisher;
 
     @Mock
     private ProductClient productClient;
+
+    @Mock
+    private UserAddressClient userAddressClient;
 
     @Mock
     private StringRedisTemplate redisTemplate;
@@ -80,8 +87,10 @@ class OrderServiceTest {
                 orderItemRepository,
                 inventoryClient,
                 idempotencyService,
+                duplicateOrderGuardService,
                 eventPublisher,
                 productClient,
+                userAddressClient,
                 redisTemplate,
                 new ObjectMapper().registerModule(new JavaTimeModule()),
                 orderStateMachine);
@@ -89,6 +98,7 @@ class OrderServiceTest {
 
     @Test
     void createOrderByItemsSplitsOrdersByMerchant() {
+        when(userAddressClient.getDefaultShippingAddress(42L)).thenReturn(defaultAddress());
         when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
                 .thenReturn(IdempotencyService.AcquireResult.acquired());
         when(productClient.getProducts(List.of(1001L, 1002L)))
@@ -109,6 +119,9 @@ class OrderServiceTest {
                                 null,
                                 new BigDecimal("59.50"),
                                 ProductStatus.ACTIVE)));
+        when(duplicateOrderGuardService.acquire(
+                        duplicateKey("order:cart", 42L, List.of("1001:7:99.00:1", "1002:8:59.50:2"), defaultAddress())))
+                .thenReturn(DuplicateOrderGuardService.AcquireResult.acquired("dup-lock"));
         when(inventoryClient.deductBatch(any())).thenReturn(true);
 
         CreateOrderResponse response = orderService.createOrderByItems(
@@ -134,6 +147,10 @@ class OrderServiceTest {
         assertEquals(response.getOrderNo(), response.getOrderNos().get(0));
         assertTrue(savedOrders.stream().map(Order::getMerchantId).allMatch(id -> id == 7L || id == 8L));
         assertTrue(savedItems.stream().map(OrderItem::getMerchantId).allMatch(id -> id == 7L || id == 8L));
+        assertEquals("Alice", savedOrders.get(0).getReceiverName());
+        assertEquals("No. 1 Century Avenue", savedOrders.get(0).getDetailAddress());
+        assertEquals("Keyboard", savedItems.get(0).getProductName());
+        assertEquals("Lightweight mouse", savedItems.get(1).getProductDescription());
     }
 
     @Test
@@ -150,7 +167,59 @@ class OrderServiceTest {
         assertEquals("ORD-1", response.getOrderNo());
         assertEquals(List.of("ORD-1", "ORD-2"), response.getOrderNos());
         assertTrue(response.isSplitByMerchant());
-        verifyNoInteractions(productClient, inventoryClient, orderRepository, orderItemRepository, eventPublisher);
+        verifyNoInteractions(
+                userAddressClient,
+                productClient,
+                inventoryClient,
+                orderRepository,
+                orderItemRepository,
+                duplicateOrderGuardService,
+                eventPublisher);
+    }
+
+    @Test
+    void createOrderByItemsReplaysRecentDuplicateAcrossDifferentIdempotencyKeys() throws Exception {
+        when(userAddressClient.getDefaultShippingAddress(42L)).thenReturn(defaultAddress());
+        CreateOrderResponse cached = new CreateOrderResponse("ORD-9", OrderStatus.CREATED, List.of("ORD-9"), false);
+        String payload = new ObjectMapper().writeValueAsString(cached);
+        when(idempotencyService.acquire("order:cart:42:idem-2", Duration.ofMinutes(10)))
+                .thenReturn(IdempotencyService.AcquireResult.acquired());
+        when(productClient.getProducts(List.of(1001L)))
+                .thenReturn(List.of(new ProductResponse(
+                        1001L,
+                        7L,
+                        "Keyboard",
+                        "Low latency keyboard",
+                        null,
+                        new BigDecimal("99.00"),
+                        ProductStatus.ACTIVE)));
+        when(duplicateOrderGuardService.acquire(
+                        duplicateKey("order:cart", 42L, List.of("1001:7:99.00:1"), defaultAddress())))
+                .thenReturn(DuplicateOrderGuardService.AcquireResult.replay(payload));
+
+        CreateOrderResponse response = orderService.createOrderByItems(
+                42L, "idem-2", "order:cart", List.of(new OrderLineItem(1001L, 1, BigDecimal.ZERO)));
+
+        assertEquals("ORD-9", response.getOrderNo());
+        verify(idempotencyService).complete("order:cart:42:idem-2", payload);
+        verifyNoInteractions(inventoryClient, orderRepository, orderItemRepository, eventPublisher);
+    }
+
+    @Test
+    void createOrderByItemsRequiresDefaultShippingAddress() {
+        when(userAddressClient.getDefaultShippingAddress(42L))
+                .thenThrow(new com.shixi.ecommerce.common.BusinessException("Default shipping address required"));
+        when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
+                .thenReturn(IdempotencyService.AcquireResult.acquired());
+
+        var exception = assertThrows(
+                com.shixi.ecommerce.common.BusinessException.class,
+                () -> orderService.createOrderByItems(
+                        42L, "idem-1", "order:cart", List.of(new OrderLineItem(1001L, 1, BigDecimal.ZERO))));
+
+        assertEquals("Default shipping address required", exception.getMessage());
+        verify(idempotencyService).release("order:cart:42:idem-1");
+        verifyNoInteractions(productClient, inventoryClient, orderRepository, orderItemRepository);
     }
 
     @Test
@@ -208,6 +277,14 @@ class OrderServiceTest {
         order.setCarrierCode("YTO");
         order.setTrackingNo("TRACK-1");
         order.setShippedAt(LocalDateTime.of(2026, 3, 23, 12, 0));
+        order.setReceiverName("Alice");
+        order.setReceiverPhone("13800000000");
+        order.setProvince("Shanghai");
+        order.setCity("Shanghai");
+        order.setDistrict("Pudong");
+        order.setDetailAddress("No. 1 Century Avenue");
+        order.setPostalCode("200120");
+        order.setAddressTag("Home");
 
         OrderItem item = new OrderItem();
         item.setOrderNo("ORD-1");
@@ -215,6 +292,8 @@ class OrderServiceTest {
         item.setSkuId(1001L);
         item.setQuantity(2);
         item.setPrice(new BigDecimal("9.95"));
+        item.setProductName("Wireless Keyboard");
+        item.setProductDescription("Low latency profile");
 
         when(valueOperations.get("ver:order:ORD-1")).thenReturn("7");
         when(valueOperations.get("cache:order:42:ORD-1:v7")).thenReturn(null);
@@ -229,10 +308,52 @@ class OrderServiceTest {
         verify(valueOperations).set(anyString(), anyString(), any(Duration.class));
         assertEquals(7L, response.getMerchantId());
         assertFalse(response.getItems().isEmpty());
+        assertEquals("Alice", response.getShippingAddress().getReceiverName());
+        assertEquals("No. 1 Century Avenue", response.getShippingAddress().getDetailAddress());
+        assertEquals("Wireless Keyboard", response.getItems().get(0).getProductName());
+        assertEquals("Low latency profile", response.getItems().get(0).getProductDescription());
+    }
+
+    @Test
+    void getRefundSnapshotIncludesProductSnapshots() {
+        Order order = new Order();
+        order.setOrderNo("ORD-2");
+        order.setUserId(42L);
+        order.setMerchantId(7L);
+        order.setStatus(OrderStatus.PAID);
+        order.setTotalAmount(new BigDecimal("49.90"));
+        order.setReceiverName("Alice");
+        order.setReceiverPhone("13800000000");
+        order.setProvince("Shanghai");
+        order.setCity("Shanghai");
+        order.setDistrict("Pudong");
+        order.setDetailAddress("No. 1 Century Avenue");
+        order.setPostalCode("200120");
+        order.setAddressTag("Home");
+
+        OrderItem item = new OrderItem();
+        item.setOrderNo("ORD-2");
+        item.setMerchantId(7L);
+        item.setSkuId(2001L);
+        item.setQuantity(1);
+        item.setPrice(new BigDecimal("49.90"));
+        item.setProductName("Gaming Mouse");
+        item.setProductDescription("Ultra light shell");
+
+        when(orderRepository.findByOrderNo("ORD-2")).thenReturn(Optional.of(order));
+        when(orderItemRepository.findByOrderNo("ORD-2")).thenReturn(List.of(item));
+
+        var response = orderService.getRefundSnapshot("ORD-2", 42L);
+
+        assertEquals(1, response.getItems().size());
+        assertEquals("Alice", response.getShippingAddress().getReceiverName());
+        assertEquals("Gaming Mouse", response.getItems().get(0).getProductName());
+        assertEquals("Ultra light shell", response.getItems().get(0).getProductDescription());
     }
 
     @Test
     void createOrderByItemsFailsFastWhenInventoryCompensationFails() {
+        when(userAddressClient.getDefaultShippingAddress(42L)).thenReturn(defaultAddress());
         when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
                 .thenReturn(IdempotencyService.AcquireResult.acquired());
         when(productClient.getProducts(List.of(1001L)))
@@ -244,6 +365,9 @@ class OrderServiceTest {
                         null,
                         new BigDecimal("99.00"),
                         ProductStatus.ACTIVE)));
+        when(duplicateOrderGuardService.acquire(
+                        duplicateKey("order:cart", 42L, List.of("1001:7:99.00:1"), defaultAddress())))
+                .thenReturn(DuplicateOrderGuardService.AcquireResult.acquired("dup-lock"));
         when(inventoryClient.deductBatch(any())).thenReturn(true);
         when(orderRepository.saveAll(any())).thenThrow(new IllegalStateException("DB unavailable"));
         doThrow(new IllegalStateException("Inventory compensation failed"))
@@ -257,5 +381,58 @@ class OrderServiceTest {
 
         assertEquals("Inventory compensation failed", exception.getMessage());
         verify(idempotencyService, never()).release(anyString());
+    }
+
+    @Test
+    void createOrderByItemsPropagatesInventoryServiceFailureInsteadOfStockShortage() {
+        when(userAddressClient.getDefaultShippingAddress(42L)).thenReturn(defaultAddress());
+        when(idempotencyService.acquire("order:cart:42:idem-1", Duration.ofMinutes(10)))
+                .thenReturn(IdempotencyService.AcquireResult.acquired());
+        when(productClient.getProducts(List.of(1001L)))
+                .thenReturn(List.of(new ProductResponse(
+                        1001L,
+                        7L,
+                        "Keyboard",
+                        "Low latency keyboard",
+                        null,
+                        new BigDecimal("99.00"),
+                        ProductStatus.ACTIVE)));
+        when(duplicateOrderGuardService.acquire(
+                        duplicateKey("order:cart", 42L, List.of("1001:7:99.00:1"), defaultAddress())))
+                .thenReturn(DuplicateOrderGuardService.AcquireResult.acquired("dup-lock"));
+        when(inventoryClient.deductBatch(any())).thenThrow(new IllegalStateException("Inventory service unavailable"));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> orderService.createOrderByItems(
+                        42L, "idem-1", "order:cart", List.of(new OrderLineItem(1001L, 1, BigDecimal.ZERO))));
+
+        assertEquals("Inventory service unavailable", exception.getMessage());
+        verify(idempotencyService).release("order:cart:42:idem-1");
+    }
+
+    private OrderAddressSnapshotResponse defaultAddress() {
+        return new OrderAddressSnapshotResponse(
+                "Alice", "13800000000", "Shanghai", "Shanghai", "Pudong", "No. 1 Century Avenue", "200120", "Home");
+    }
+
+    private String duplicateKey(
+            String bizPrefix, Long userId, List<String> itemSegments, OrderAddressSnapshotResponse shippingAddress) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(bizPrefix).append(':').append(userId);
+        for (String itemSegment : itemSegments) {
+            builder.append('|').append(itemSegment);
+        }
+        String encoded;
+        try {
+            String json = new ObjectMapper().writeValueAsString(shippingAddress);
+            encoded = java.util.Base64.getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+        builder.append("|addr:").append(encoded);
+        return builder.toString();
     }
 }

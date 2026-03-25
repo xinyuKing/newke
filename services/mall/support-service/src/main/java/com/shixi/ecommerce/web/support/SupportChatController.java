@@ -47,6 +47,13 @@ public class SupportChatController {
         return ApiResponse.ok(toMessageResponse(message));
     }
 
+    @PostMapping("/session/{sessionId}/claim")
+    public ApiResponse<ChatSessionResponse> claim(@PathVariable String sessionId) {
+        Long supportId = currentUserService.getCurrentUser().getUserId();
+        ChatSession session = chatService.claimSession(supportId, sessionId);
+        return ApiResponse.ok(toSessionResponse(session));
+    }
+
     @GetMapping("/session/{sessionId}/messages")
     public ApiResponse<List<ChatMessageResponse>> messages(@PathVariable String sessionId) {
         Long supportId = currentUserService.getCurrentUser().getUserId();

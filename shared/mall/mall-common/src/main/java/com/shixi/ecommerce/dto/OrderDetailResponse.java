@@ -20,6 +20,7 @@ public class OrderDetailResponse {
     private String trackingNo;
     private LocalDateTime shippedAt;
     private LocalDateTime createdAt;
+    private OrderAddressSnapshotResponse shippingAddress;
     private List<OrderItemResponse> items;
 
     public OrderDetailResponse() {}
@@ -33,7 +34,7 @@ public class OrderDetailResponse {
             LocalDateTime shippedAt,
             LocalDateTime createdAt,
             List<OrderItemResponse> items) {
-        this(orderNo, null, status, totalAmount, carrierCode, trackingNo, shippedAt, createdAt, items);
+        this(orderNo, null, status, totalAmount, carrierCode, trackingNo, shippedAt, createdAt, null, items);
     }
 
     public OrderDetailResponse(
@@ -46,6 +47,20 @@ public class OrderDetailResponse {
             LocalDateTime shippedAt,
             LocalDateTime createdAt,
             List<OrderItemResponse> items) {
+        this(orderNo, merchantId, status, totalAmount, carrierCode, trackingNo, shippedAt, createdAt, null, items);
+    }
+
+    public OrderDetailResponse(
+            String orderNo,
+            Long merchantId,
+            OrderStatus status,
+            BigDecimal totalAmount,
+            String carrierCode,
+            String trackingNo,
+            LocalDateTime shippedAt,
+            LocalDateTime createdAt,
+            OrderAddressSnapshotResponse shippingAddress,
+            List<OrderItemResponse> items) {
         this.orderNo = orderNo;
         this.merchantId = merchantId;
         this.status = status;
@@ -54,6 +69,7 @@ public class OrderDetailResponse {
         this.trackingNo = trackingNo;
         this.shippedAt = shippedAt;
         this.createdAt = createdAt;
+        this.shippingAddress = shippingAddress;
         this.items = items;
     }
 
@@ -119,6 +135,14 @@ public class OrderDetailResponse {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public OrderAddressSnapshotResponse getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(OrderAddressSnapshotResponse shippingAddress) {
+        this.shippingAddress = shippingAddress;
     }
 
     public List<OrderItemResponse> getItems() {

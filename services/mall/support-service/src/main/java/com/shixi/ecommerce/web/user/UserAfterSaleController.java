@@ -3,6 +3,7 @@ package com.shixi.ecommerce.web.user;
 import com.shixi.ecommerce.common.ApiResponse;
 import com.shixi.ecommerce.domain.AfterSaleStatus;
 import com.shixi.ecommerce.dto.AfterSaleCreateRequest;
+import com.shixi.ecommerce.dto.AfterSaleEvidenceRequest;
 import com.shixi.ecommerce.dto.AfterSaleResponse;
 import com.shixi.ecommerce.security.JwtUser;
 import com.shixi.ecommerce.service.AfterSaleService;
@@ -10,7 +11,9 @@ import com.shixi.ecommerce.service.CurrentUserService;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,6 +40,13 @@ public class UserAfterSaleController {
     public ApiResponse<AfterSaleResponse> create(@Valid @RequestBody AfterSaleCreateRequest request) {
         JwtUser user = currentUserService.getCurrentUser();
         return ApiResponse.ok(afterSaleService.create(user.getUserId(), request));
+    }
+
+    @PutMapping("/{id}/evidence")
+    public ApiResponse<AfterSaleResponse> submitEvidence(
+            @PathVariable Long id, @Valid @RequestBody AfterSaleEvidenceRequest request) {
+        JwtUser user = currentUserService.getCurrentUser();
+        return ApiResponse.ok(afterSaleService.submitEvidence(user.getUserId(), id, request));
     }
 
     @GetMapping

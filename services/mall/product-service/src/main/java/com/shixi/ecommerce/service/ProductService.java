@@ -97,24 +97,25 @@ public class ProductService {
         product.setPrice(request.getPrice());
         product.setStatus(ProductStatus.ACTIVE);
         productRepository.saveAndFlush(product);
-        boolean[] inventoryInitialized = {false};
+        boolean[] inventoryCompensationRequired = {true};
+        // Register rollback cleanup before the remote call so ambiguous downstream failures
+        // still remove any stock that may already have been created.
+        registerInventoryRollbackCompensation(product.getId(), inventoryCompensationRequired);
         inventoryClient.initStock(product.getId(), request.getStock());
-        inventoryInitialized[0] = true;
-        registerInventoryRollbackCompensation(product.getId(), inventoryInitialized);
         bumpProductVersion(product.getId());
         bumpSearchVersion();
         productIndexPublisher.publishAfterCommit(product.getId());
         return productMapper.toResponse(product);
     }
 
-    private void registerInventoryRollbackCompensation(Long productId, boolean[] inventoryInitialized) {
+    private void registerInventoryRollbackCompensation(Long productId, boolean[] inventoryCompensationRequired) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
-                if (status != STATUS_ROLLED_BACK || !inventoryInitialized[0]) {
+                if (status != STATUS_ROLLED_BACK || !inventoryCompensationRequired[0]) {
                     return;
                 }
                 try {
@@ -258,6 +259,27 @@ public class ProductService {
         ProductResponse response = productMapper.toResponse(getProductOrThrow(skuId));
         setCache(cacheKey, response, PRODUCT_CACHE_TTL);
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public ProductResponse getPublicProductResponse(Long skuId) {
+        try {
+            ProductResponse response = getProductResponse(skuId);
+            if (response.getStatus() != ProductStatus.ACTIVE) {
+                throw new BusinessException("Product not found");
+            }
+            return response;
+        } catch (BusinessException ex) {
+            if (ex.getMessage() != null && ex.getMessage().startsWith("Product not found")) {
+                throw new BusinessException("Product not found");
+            }
+            throw ex;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void assertPublicProductAccessible(Long skuId) {
+        getPublicProductResponse(skuId);
     }
 
     /**

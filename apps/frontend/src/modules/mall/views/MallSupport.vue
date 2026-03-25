@@ -4,13 +4,13 @@
       <div>
         <div class="tag">Support</div>
         <h1>After-sale and chat</h1>
-        <p class="muted">售后申请与客服会话都已经接到了 `support-service`。</p>
+        <p class="muted">售后申请与客服会话都已经接到 `support-service`。</p>
       </div>
     </div>
 
     <div v-if="!auth.mallCanShop" class="empty card">
       <h3>Shopper role required</h3>
-      <p>售后和客服记录属于私有业务数据，需要商城 `USER` 角色登录态。</p>
+      <p>售后和客服记录属于私有业务数据，需要带有 `USER` 角色的登录态。</p>
       <RouterLink class="ghost" to="/login?redirect=/mall/support">Login to contact support</RouterLink>
     </div>
 
@@ -28,22 +28,70 @@
             <span>Order number</span>
             <input v-model="ticketForm.orderNo" placeholder="Enter order number" />
           </label>
+
+          <div v-if="ticketForm.orderNo.trim()" class="order-preview">
+            <p v-if="orderPreviewLoading" class="muted">Loading order items...</p>
+            <p v-else-if="orderPreviewError" class="muted">{{ orderPreviewError }}</p>
+            <template v-else-if="orderPreview">
+              <div class="preview-head">
+                <strong>{{ orderPreview.orderNo }}</strong>
+                <span class="tag alt">{{ orderPreview.status }}</span>
+              </div>
+              <p class="muted">
+                {{ formatDateTime(orderPreview.createdAt) }} · {{ orderPreview.items?.length || 0 }} items
+              </p>
+
+              <div class="scope-list">
+                <button
+                  type="button"
+                  class="scope-pill"
+                  :class="{ active: !ticketForm.skuId }"
+                  @click="selectWholeOrder"
+                >
+                  <strong>Whole order</strong>
+                  <span>Apply after-sale to every item in this order</span>
+                </button>
+                <button
+                  v-for="item in orderPreview.items || []"
+                  :key="item.skuId"
+                  type="button"
+                  class="scope-pill"
+                  :class="{ active: String(item.skuId) === String(ticketForm.skuId || '') }"
+                  @click="selectOrderItem(item)"
+                >
+                  <strong>{{ resolveOrderItemName(item) }}</strong>
+                  <span>SKU {{ item.skuId }} · Qty {{ item.quantity }}</span>
+                </button>
+              </div>
+
+              <p v-if="selectedOrderItem" class="muted">
+                {{ resolveOrderItemDescription(selectedOrderItem) }}
+              </p>
+            </template>
+          </div>
+
           <label>
-            <span>SKU ID (optional)</span>
-            <input v-model="ticketForm.skuId" placeholder="Submit a per-item after-sale if needed" />
-          </label>
-          <label>
-            <span>Quantity (optional)</span>
+            <span>{{ selectedOrderItem ? `Quantity (max ${selectedOrderItem.quantity})` : "Quantity (optional)" }}</span>
             <input
               v-model="ticketForm.quantity"
               type="number"
               min="1"
-              placeholder="Default is the full purchased quantity for that SKU"
+              :max="selectedOrderItem?.quantity || undefined"
+              :disabled="!ticketForm.skuId"
+              :placeholder="
+                selectedOrderItem
+                  ? 'Default is the full purchased quantity for this item'
+                  : 'Pick a specific item first if you want a partial claim'
+              "
             />
           </label>
           <label>
             <span>Reason</span>
-            <textarea v-model="ticketForm.reason" rows="5" placeholder="Describe the issue, product condition, or refund reason."></textarea>
+            <textarea
+              v-model="ticketForm.reason"
+              rows="5"
+              placeholder="Describe the issue, product condition, or refund reason."
+            ></textarea>
           </label>
           <button type="button" class="solid" @click="createTicket">Submit after-sale</button>
 
@@ -53,10 +101,48 @@
                 <strong>{{ ticket.orderNo }}</strong>
                 <span class="tag alt">{{ ticket.status }}</span>
               </div>
-              <p v-if="ticket.skuId || ticket.quantity" class="muted">
-                SKU: {{ ticket.skuId || "ALL" }} · Qty: {{ ticket.quantity || "ALL" }}
+              <p class="muted">
+                {{ ticketTargetLabel(ticket) }}
+                <template v-if="ticket.skuId || ticket.quantity">
+                  · Qty: {{ ticket.quantity || "ALL" }}
+                </template>
               </p>
+              <p v-if="ticket.productDescription" class="muted">{{ ticket.productDescription }}</p>
               <p>{{ ticket.reason }}</p>
+              <div v-if="ticket.evidenceNote || safeEvidenceUrls(ticket).length || hasBlockedEvidenceUrls(ticket)" class="evidence-view">
+                <p v-if="ticket.evidenceNote" class="muted">Evidence note: {{ ticket.evidenceNote }}</p>
+                <div v-if="safeEvidenceUrls(ticket).length" class="evidence-links">
+                  <a
+                    v-for="url in safeEvidenceUrls(ticket)"
+                    :key="url"
+                    :href="url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {{ url }}
+                  </a>
+                </div>
+                <p v-if="hasBlockedEvidenceUrls(ticket)" class="muted">Some unsupported links were hidden for safety.</p>
+              </div>
+              <div v-if="isEvidenceEditable(ticket)" class="evidence-form">
+                <label>
+                  <span>Evidence note</span>
+                  <textarea
+                    v-model="ensureEvidenceDraft(ticket).note"
+                    rows="3"
+                    placeholder="Add proof details, package condition, or what the support team should verify."
+                  ></textarea>
+                </label>
+                <label>
+                  <span>Evidence URLs</span>
+                  <textarea
+                    v-model="ensureEvidenceDraft(ticket).urls"
+                    rows="3"
+                    placeholder="Paste photo or video links, one per line or separated by commas."
+                  ></textarea>
+                </label>
+                <button type="button" class="ghost" @click="submitEvidence(ticket)">Submit evidence</button>
+              </div>
               <span class="muted">{{ formatDateTime(ticket.createdAt) }}</span>
             </article>
           </div>
@@ -96,7 +182,12 @@
 
           <label>
             <span>Message</span>
-            <textarea v-model="chatText" rows="4" :disabled="!currentSessionId" placeholder="Type the next support message."></textarea>
+            <textarea
+              v-model="chatText"
+              rows="4"
+              :disabled="!currentSessionId"
+              placeholder="Type the next support message."
+            ></textarea>
           </label>
           <button type="button" class="solid" :disabled="!currentSessionId" @click="sendMessage">Send</button>
         </section>
@@ -108,7 +199,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, reactive, ref, watch, computed } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import mallApi from "../api/mall";
 import { useAuthStore } from "../../../stores/auth";
@@ -123,6 +214,12 @@ const sessions = ref([]);
 const messages = ref([]);
 const currentSessionId = ref("");
 const chatText = ref("");
+const orderPreview = ref(null);
+const orderPreviewLoading = ref(false);
+const orderPreviewError = ref("");
+const orderPreviewRequestToken = ref(0);
+const evidenceDrafts = reactive({});
+const safeEvidenceProtocols = new Set(["http:", "https:"]);
 const ticketForm = reactive({
   orderNo: "",
   skuId: "",
@@ -130,9 +227,38 @@ const ticketForm = reactive({
   reason: ""
 });
 
+let orderPreviewTimer = null;
+
+const normalizeOptionalLong = (value) => {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return undefined;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const normalizeOptionalInt = (value) => {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return undefined;
+  }
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const selectedOrderItem = computed(() => {
+  const skuId = normalizeOptionalLong(ticketForm.skuId);
+  if (!skuId || !Array.isArray(orderPreview.value?.items)) {
+    return null;
+  }
+  return orderPreview.value.items.find((item) => item.skuId === skuId) || null;
+});
+
 const loadTickets = async () => {
   const { data } = await mallApi.get("/user/after-sale");
   tickets.value = data?.success ? data.data || [] : [];
+  tickets.value.forEach((ticket) => {
+    ensureEvidenceDraft(ticket);
+  });
 };
 
 const loadSessions = async () => {
@@ -151,6 +277,52 @@ const loadMessages = async (sessionId) => {
   }
   const { data } = await mallApi.get(`/user/support/session/${sessionId}/messages`);
   messages.value = data?.success ? data.data || [] : [];
+};
+
+const loadOrderPreview = async (rawOrderNo) => {
+  const orderNo = typeof rawOrderNo === "string" ? rawOrderNo.trim() : "";
+  const requestToken = ++orderPreviewRequestToken.value;
+  if (!orderNo) {
+    orderPreview.value = null;
+    orderPreviewError.value = "";
+    orderPreviewLoading.value = false;
+    ticketForm.skuId = "";
+    ticketForm.quantity = "";
+    return;
+  }
+  orderPreviewLoading.value = true;
+  orderPreviewError.value = "";
+  try {
+    const { data } = await mallApi.get(`/user/orders/${orderNo}`);
+    if (requestToken !== orderPreviewRequestToken.value) return;
+    if (data?.success && data.data) {
+      orderPreview.value = data.data;
+      const currentSkuId = normalizeOptionalLong(ticketForm.skuId);
+      const stillExists = data.data.items?.some((item) => item.skuId === currentSkuId);
+      if (!stillExists) {
+        ticketForm.skuId = "";
+        ticketForm.quantity = "";
+      }
+      if (selectedOrderItem.value && normalizeOptionalInt(ticketForm.quantity) > selectedOrderItem.value.quantity) {
+        ticketForm.quantity = String(selectedOrderItem.value.quantity);
+      }
+      return;
+    }
+    orderPreview.value = null;
+    orderPreviewError.value = data?.message || "Order preview unavailable.";
+    ticketForm.skuId = "";
+    ticketForm.quantity = "";
+  } catch (error) {
+    if (requestToken !== orderPreviewRequestToken.value) return;
+    orderPreview.value = null;
+    orderPreviewError.value = "Order preview unavailable.";
+    ticketForm.skuId = "";
+    ticketForm.quantity = "";
+  } finally {
+    if (requestToken === orderPreviewRequestToken.value) {
+      orderPreviewLoading.value = false;
+    }
+  }
 };
 
 const selectSession = async (sessionId) => {
@@ -190,10 +362,47 @@ const sendMessage = async () => {
   message.value = data?.message || "Send message failed.";
 };
 
+const selectWholeOrder = () => {
+  ticketForm.skuId = "";
+  ticketForm.quantity = "";
+};
+
+const selectOrderItem = (item) => {
+  ticketForm.skuId = String(item?.skuId || "");
+  const currentQuantity = normalizeOptionalInt(ticketForm.quantity);
+  if (currentQuantity && item?.quantity && currentQuantity > item.quantity) {
+    ticketForm.quantity = String(item.quantity);
+  }
+};
+
+const resolveOrderItemName = (item) => item?.productName || `Product ${item?.skuId}`;
+
+const resolveOrderItemDescription = (item) =>
+  item?.productDescription || "Product snapshot unavailable for this order item.";
+
+const ticketTargetLabel = (ticket) => {
+  if (!ticket?.skuId) {
+    return "Whole order";
+  }
+  return ticket.productName || `SKU ${ticket.skuId}`;
+};
+
 const createTicket = async () => {
   message.value = "";
+  const orderNo = ticketForm.orderNo.trim();
+  if (!orderNo) {
+    message.value = "Order number required.";
+    return;
+  }
+  if (selectedOrderItem.value) {
+    const quantity = normalizeOptionalInt(ticketForm.quantity);
+    if (quantity && quantity > selectedOrderItem.value.quantity) {
+      message.value = `Quantity exceeds the purchased amount for ${resolveOrderItemName(selectedOrderItem.value)}.`;
+      return;
+    }
+  }
   const { data } = await mallApi.post("/user/after-sale", {
-    orderNo: ticketForm.orderNo,
+    orderNo,
     skuId: normalizeOptionalLong(ticketForm.skuId),
     quantity: normalizeOptionalInt(ticketForm.quantity),
     reason: ticketForm.reason
@@ -209,6 +418,63 @@ const createTicket = async () => {
   message.value = data?.message || "Create after-sale request failed.";
 };
 
+const ensureEvidenceDraft = (ticket) => {
+  if (!ticket?.id) {
+    return { note: "", urls: "" };
+  }
+  if (!evidenceDrafts[ticket.id]) {
+    evidenceDrafts[ticket.id] = {
+      note: ticket.evidenceNote || "",
+      urls: Array.isArray(ticket.evidenceUrls) ? ticket.evidenceUrls.join("\n") : ""
+    };
+  }
+  return evidenceDrafts[ticket.id];
+};
+
+const isEvidenceEditable = (ticket) =>
+  ticket && ["INIT", "WAIT_PROOF", "REVIEWING"].includes(String(ticket.status || ""));
+
+const toSafeEvidenceUrl = (value) => {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!trimmed) {
+    return "";
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return safeEvidenceProtocols.has(parsed.protocol) ? parsed.href : "";
+  } catch {
+    return "";
+  }
+};
+
+const safeEvidenceUrls = (ticket) =>
+  (Array.isArray(ticket?.evidenceUrls) ? ticket.evidenceUrls : [])
+    .map((url) => toSafeEvidenceUrl(url))
+    .filter(Boolean);
+
+const hasBlockedEvidenceUrls = (ticket) =>
+  (Array.isArray(ticket?.evidenceUrls) ? ticket.evidenceUrls : []).some((url) => !toSafeEvidenceUrl(url));
+
+const submitEvidence = async (ticket) => {
+  message.value = "";
+  const draft = ensureEvidenceDraft(ticket);
+  const evidenceNote = draft.note.trim();
+  const evidenceUrls = draft.urls
+    .split(/[\n,]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const { data } = await mallApi.put(`/user/after-sale/${ticket.id}/evidence`, {
+    evidenceNote,
+    evidenceUrls
+  });
+  if (data?.success) {
+    await loadTickets();
+    message.value = "Evidence submitted.";
+    return;
+  }
+  message.value = data?.message || "Submit evidence failed.";
+};
+
 watch(
   () => route.query.orderNo,
   (value) => {
@@ -219,21 +485,35 @@ watch(
   { immediate: true }
 );
 
-const normalizeOptionalLong = (value) => {
-  if (value === null || value === undefined || String(value).trim() === "") {
-    return undefined;
-  }
-  const parsed = Number.parseInt(String(value), 10);
-  return Number.isNaN(parsed) ? undefined : parsed;
-};
+watch(
+  () => ticketForm.orderNo,
+  (value) => {
+    if (orderPreviewTimer) {
+      clearTimeout(orderPreviewTimer);
+    }
+    orderPreviewTimer = setTimeout(() => {
+      loadOrderPreview(value);
+    }, 250);
+  },
+  { immediate: true }
+);
 
-const normalizeOptionalInt = (value) => {
-  if (value === null || value === undefined || String(value).trim() === "") {
-    return undefined;
+watch(selectedOrderItem, (item) => {
+  if (!item) {
+    ticketForm.quantity = "";
+    return;
   }
-  const parsed = Number.parseInt(String(value), 10);
-  return Number.isNaN(parsed) ? undefined : parsed;
-};
+  const quantity = normalizeOptionalInt(ticketForm.quantity);
+  if (quantity && quantity > item.quantity) {
+    ticketForm.quantity = String(item.quantity);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (orderPreviewTimer) {
+    clearTimeout(orderPreviewTimer);
+  }
+});
 
 onMounted(async () => {
   if (!auth.mallCanShop) return;
@@ -275,11 +555,43 @@ onMounted(async () => {
 }
 
 .section-head,
-.line {
+.line,
+.preview-head {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
+}
+
+.order-preview,
+.scope-list {
+  display: grid;
+  gap: 10px;
+}
+
+.scope-list {
+  grid-template-columns: 1fr;
+}
+
+.scope-pill {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.scope-pill.active {
+  border-color: transparent;
+  background: rgba(42, 157, 143, 0.1);
+}
+
+.scope-pill span {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 label {
@@ -306,6 +618,18 @@ textarea {
 .message-list {
   display: grid;
   gap: 10px;
+}
+
+.evidence-view,
+.evidence-form,
+.evidence-links {
+  display: grid;
+  gap: 8px;
+}
+
+.evidence-links a {
+  color: var(--accent-2);
+  word-break: break-all;
 }
 
 .ticket-item,

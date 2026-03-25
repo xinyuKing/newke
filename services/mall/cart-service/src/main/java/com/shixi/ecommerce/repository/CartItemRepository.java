@@ -16,14 +16,17 @@ public interface CartItemRepository extends JpaRepository<CartItem, Long> {
     void deleteByUserId(Long userId);
 
     @Modifying(clearAutomatically = true)
-    @Query(
-            "update CartItem c set c.quantity = c.quantity + :delta, c.priceSnapshot = :price, c.updatedAt = CURRENT_TIMESTAMP "
-                    + "where c.userId = :userId and c.skuId = :skuId")
+    @Query("update CartItem c set c.quantity = c.quantity + :delta, c.priceSnapshot = :price, "
+            + "c.productNameSnapshot = :productName, c.productDescriptionSnapshot = :productDescription, "
+            + "c.updatedAt = CURRENT_TIMESTAMP "
+            + "where c.userId = :userId and c.skuId = :skuId")
     int increaseQuantity(
             @Param("userId") Long userId,
             @Param("skuId") Long skuId,
             @Param("delta") Integer delta,
-            @Param("price") java.math.BigDecimal price);
+            @Param("price") java.math.BigDecimal price,
+            @Param("productName") String productName,
+            @Param("productDescription") String productDescription);
 
     @Modifying(clearAutomatically = true)
     @Query("update CartItem c set c.quantity = :quantity, c.updatedAt = CURRENT_TIMESTAMP "

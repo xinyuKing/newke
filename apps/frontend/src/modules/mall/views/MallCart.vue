@@ -22,18 +22,39 @@
           <article v-for="item in rows" :key="item.skuId" class="cart-item">
             <div class="item-copy">
               <span class="tag alt">SKU {{ item.skuId }}</span>
-              <h3>{{ item.product?.name || `Product ${item.skuId}` }}</h3>
-              <p>{{ item.product?.description || "Product details are loading from the product service." }}</p>
+              <h3>{{ resolveItemName(item) }}</h3>
+              <p>{{ resolveItemDescription(item) }}</p>
+              <p v-if="item.productAvailable === false" class="item-warning">
+                This item is no longer available for checkout. Remove it to continue.
+              </p>
               <strong>{{ formatCurrency(item.priceSnapshot) }}</strong>
             </div>
 
             <div class="item-actions">
               <div class="qty-box">
-                <button type="button" @click="updateQuantity(item, item.quantity - 1)">-</button>
-                <input :value="item.quantity" type="number" min="1" @change="syncQuantity(item, $event)" />
-                <button type="button" @click="updateQuantity(item, item.quantity + 1)">+</button>
+                <button
+                  type="button"
+                  :disabled="cartLocked || item.productAvailable === false"
+                  @click="updateQuantity(item, item.quantity - 1)"
+                >
+                  -
+                </button>
+                <input
+                  :value="item.quantity"
+                  :disabled="cartLocked || item.productAvailable === false"
+                  type="number"
+                  min="1"
+                  @change="syncQuantity(item, $event)"
+                />
+                <button
+                  type="button"
+                  :disabled="cartLocked || item.productAvailable === false"
+                  @click="updateQuantity(item, item.quantity + 1)"
+                >
+                  +
+                </button>
               </div>
-              <button type="button" class="ghost" @click="removeItem(item.skuId)">Remove</button>
+              <button type="button" class="ghost" :disabled="cartLocked" @click="removeItem(item.skuId)">Remove</button>
             </div>
           </article>
         </section>
@@ -48,8 +69,10 @@
             <span>Total</span>
             <strong>{{ formatCurrency(totalAmount) }}</strong>
           </div>
-          <button type="button" class="solid" @click="checkout">Checkout</button>
-          <p v-if="message" class="muted">{{ message }}</p>
+          <button type="button" class="solid" :disabled="checkoutBlocked" @click="checkout">
+            {{ checkoutButtonLabel }}
+          </button>
+          <p v-if="statusMessage" class="muted">{{ statusMessage }}</p>
         </aside>
       </div>
       <div v-else class="empty card">
@@ -62,11 +85,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import mallApi from "../api/mall";
 import { useAuthStore } from "../../../stores/auth";
 import { createIdempotencyKey, formatCurrency } from "../utils/format";
+import {
+  clearPendingIdempotencyKey,
+  getPendingIdempotencyKey,
+  resolveIdempotentRequestFailure,
+  setPendingIdempotencyKey
+} from "../utils/idempotency";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -75,6 +104,52 @@ const items = ref([]);
 const productMap = ref({});
 const loading = ref(false);
 const message = ref("");
+const checkoutSubmitting = ref(false);
+const checkoutKey = ref("");
+const PENDING_CHECKOUT_MESSAGE =
+  "A checkout request is still pending. Retry checkout to reuse the same request. Cart edits stay locked until it resolves.";
+const UNAVAILABLE_ITEMS_MESSAGE = "Remove unavailable items before checkout.";
+
+const checkoutStorageMeta = computed(() => ({
+  scope: "cart-checkout",
+  owner: auth.mallToken?.slice(-12) || "shopper",
+  subject: "active"
+}));
+
+const resetCheckoutKey = () => {
+  checkoutKey.value = "";
+  clearPendingIdempotencyKey(checkoutStorageMeta.value);
+};
+
+const ensureCheckoutKey = () => {
+  if (checkoutKey.value) return checkoutKey.value;
+  const storedKey = getPendingIdempotencyKey(checkoutStorageMeta.value);
+  checkoutKey.value = storedKey || createIdempotencyKey("cart");
+  setPendingIdempotencyKey(checkoutStorageMeta.value, checkoutKey.value);
+  return checkoutKey.value;
+};
+
+const checkoutPending = computed(() => Boolean(checkoutKey.value));
+
+const cartLocked = computed(() => checkoutSubmitting.value || checkoutPending.value);
+
+const hasUnavailableItems = computed(() => rows.value.some((item) => item.productAvailable === false));
+
+const checkoutBlocked = computed(() => checkoutSubmitting.value || (hasUnavailableItems.value && !checkoutPending.value));
+
+const checkoutButtonLabel = computed(() => {
+  if (checkoutSubmitting.value) return "Submitting...";
+  if (hasUnavailableItems.value && !checkoutPending.value) return "Remove unavailable items";
+  if (checkoutPending.value) return "Retry checkout";
+  return "Checkout";
+});
+
+const statusMessage = computed(() => {
+  if (message.value) return message.value;
+  if (checkoutPending.value) return PENDING_CHECKOUT_MESSAGE;
+  if (hasUnavailableItems.value) return UNAVAILABLE_ITEMS_MESSAGE;
+  return "";
+});
 
 const rows = computed(() =>
   items.value.map((item) => ({
@@ -91,14 +166,29 @@ const totalAmount = computed(() =>
   rows.value.reduce((sum, item) => sum + Number(item.priceSnapshot || 0) * Number(item.quantity || 0), 0)
 );
 
-const hydrateProducts = async (skuIds) => {
-  const uniqueIds = [...new Set(skuIds.filter(Boolean))];
+const clearProductMap = () => {
+  productMap.value = {};
+};
+
+const resolveItemName = (item) => item.productName || item.product?.name || `Product ${item.skuId}`;
+
+const resolveItemDescription = (item) =>
+  item.productDescription || item.product?.description || "Product snapshot unavailable in the cart.";
+
+const hydrateProducts = async (cartItems) => {
+  const uniqueIds = [
+    ...new Set(
+      (cartItems || [])
+        .filter((item) => item?.skuId && (!item?.productName || !item?.productDescription))
+        .map((item) => item.skuId)
+    )
+  ];
   const nextMap = { ...productMap.value };
-  await Promise.all(
+  await Promise.allSettled(
     uniqueIds.map(async (skuId) => {
       if (nextMap[skuId]) return;
       const { data } = await mallApi.get(`/products/${skuId}`);
-      if (data?.success) {
+      if (data?.success && data.data) {
         nextMap[skuId] = data.data;
       }
     })
@@ -112,7 +202,11 @@ const loadCart = async () => {
   try {
     const { data } = await mallApi.get("/user/cart/items");
     items.value = data?.success ? data.data || [] : [];
-    await hydrateProducts(items.value.map((item) => item.skuId));
+    clearProductMap();
+    if (!items.value.length) {
+      resetCheckoutKey();
+    }
+    await hydrateProducts(items.value);
   } finally {
     loading.value = false;
   }
@@ -120,6 +214,10 @@ const loadCart = async () => {
 
 const updateQuantity = async (item, quantity) => {
   message.value = "";
+  if (cartLocked.value) {
+    message.value = PENDING_CHECKOUT_MESSAGE;
+    return;
+  }
   const nextQuantity = Math.max(1, Number(quantity) || 1);
   const { data } = await mallApi.put(`/user/cart/items/${item.skuId}`, {
     quantity: nextQuantity
@@ -128,6 +226,7 @@ const updateQuantity = async (item, quantity) => {
     items.value = items.value.map((current) =>
       current.skuId === item.skuId ? { ...current, quantity: nextQuantity } : current
     );
+    resetCheckoutKey();
     return;
   }
   message.value = data?.message || "Update quantity failed.";
@@ -139,9 +238,17 @@ const syncQuantity = (item, event) => {
 
 const removeItem = async (skuId) => {
   message.value = "";
+  if (cartLocked.value) {
+    message.value = PENDING_CHECKOUT_MESSAGE;
+    return;
+  }
   const { data } = await mallApi.delete(`/user/cart/items/${skuId}`);
   if (data?.success) {
     items.value = items.value.filter((item) => item.skuId !== skuId);
+    if (!items.value.length) {
+      productMap.value = {};
+    }
+    resetCheckoutKey();
     return;
   }
   message.value = data?.message || "Remove item failed.";
@@ -149,21 +256,53 @@ const removeItem = async (skuId) => {
 
 const checkout = async () => {
   message.value = "";
-  const { data } = await mallApi.post("/user/cart/checkout", {
-    idempotencyKey: createIdempotencyKey("cart")
-  });
-  const orderNos = data?.data?.orderNos || [];
-  const primaryOrderNo = data?.data?.orderNo || orderNos[0];
-  if (data?.success && orderNos.length > 1) {
-    router.push({ path: "/mall/orders", query: { created: orderNos.join(",") } });
+  if (hasUnavailableItems.value && !checkoutPending.value) {
+    message.value = UNAVAILABLE_ITEMS_MESSAGE;
     return;
   }
-  if (data?.success && primaryOrderNo) {
-    router.push(`/mall/orders/${primaryOrderNo}`);
-    return;
+  if (checkoutSubmitting.value) return;
+  checkoutSubmitting.value = true;
+  const idempotencyKey = ensureCheckoutKey();
+  try {
+    const response = await mallApi.post("/user/cart/checkout", {
+      idempotencyKey
+    });
+    const { data } = response;
+    const orderNos = data?.data?.orderNos || [];
+    const primaryOrderNo = data?.data?.orderNo || orderNos[0];
+    if (data?.success && orderNos.length > 1) {
+      resetCheckoutKey();
+      router.push({ path: "/mall/orders", query: { created: orderNos.join(",") } });
+      return;
+    }
+    if (data?.success && primaryOrderNo) {
+      resetCheckoutKey();
+      router.push(`/mall/orders/${primaryOrderNo}`);
+      return;
+    }
+    const failure = resolveIdempotentRequestFailure(response, "Checkout failed.", PENDING_CHECKOUT_MESSAGE);
+    if (!failure.ambiguous) {
+      resetCheckoutKey();
+    }
+    message.value = failure.message;
+  } catch (error) {
+    message.value = PENDING_CHECKOUT_MESSAGE;
+  } finally {
+    checkoutSubmitting.value = false;
   }
-  message.value = data?.message || "Checkout failed.";
 };
+
+watch(
+  checkoutStorageMeta,
+  (meta) => {
+    if (!auth.mallCanShop) {
+      resetCheckoutKey();
+      return;
+    }
+    checkoutKey.value = getPendingIdempotencyKey(meta);
+  },
+  { immediate: true }
+);
 
 onMounted(loadCart);
 </script>
@@ -225,6 +364,12 @@ onMounted(loadCart);
   margin: 0 0 10px;
   color: var(--muted);
   line-height: 1.7;
+}
+
+.item-warning {
+  margin-top: -2px;
+  color: #b54708;
+  font-size: 0.92rem;
 }
 
 .item-actions {
@@ -301,6 +446,14 @@ onMounted(loadCart);
 .tag.alt {
   background: rgba(42, 157, 143, 0.1);
   color: var(--accent-2);
+}
+
+.qty-box button:disabled,
+.qty-box input:disabled,
+.solid:disabled,
+.ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (max-width: 920px) {

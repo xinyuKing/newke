@@ -15,6 +15,7 @@ public class OrderRefundSnapshotResponse {
     private String trackingNo;
     private LocalDateTime shippedAt;
     private LocalDateTime createdAt;
+    private OrderAddressSnapshotResponse shippingAddress;
     private List<OrderItemResponse> items;
 
     public OrderRefundSnapshotResponse() {}
@@ -29,7 +30,7 @@ public class OrderRefundSnapshotResponse {
             LocalDateTime shippedAt,
             LocalDateTime createdAt,
             List<OrderItemResponse> items) {
-        this(orderNo, userId, null, status, totalAmount, carrierCode, trackingNo, shippedAt, createdAt, items);
+        this(orderNo, userId, null, status, totalAmount, carrierCode, trackingNo, shippedAt, createdAt, null, items);
     }
 
     public OrderRefundSnapshotResponse(
@@ -43,6 +44,32 @@ public class OrderRefundSnapshotResponse {
             LocalDateTime shippedAt,
             LocalDateTime createdAt,
             List<OrderItemResponse> items) {
+        this(
+                orderNo,
+                userId,
+                merchantId,
+                status,
+                totalAmount,
+                carrierCode,
+                trackingNo,
+                shippedAt,
+                createdAt,
+                null,
+                items);
+    }
+
+    public OrderRefundSnapshotResponse(
+            String orderNo,
+            Long userId,
+            Long merchantId,
+            OrderStatus status,
+            BigDecimal totalAmount,
+            String carrierCode,
+            String trackingNo,
+            LocalDateTime shippedAt,
+            LocalDateTime createdAt,
+            OrderAddressSnapshotResponse shippingAddress,
+            List<OrderItemResponse> items) {
         this.orderNo = orderNo;
         this.userId = userId;
         this.merchantId = merchantId;
@@ -52,6 +79,7 @@ public class OrderRefundSnapshotResponse {
         this.trackingNo = trackingNo;
         this.shippedAt = shippedAt;
         this.createdAt = createdAt;
+        this.shippingAddress = shippingAddress;
         this.items = items;
     }
 
@@ -125,6 +153,14 @@ public class OrderRefundSnapshotResponse {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public OrderAddressSnapshotResponse getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(OrderAddressSnapshotResponse shippingAddress) {
+        this.shippingAddress = shippingAddress;
     }
 
     public List<OrderItemResponse> getItems() {

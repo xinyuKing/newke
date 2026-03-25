@@ -2,19 +2,25 @@ package com.shixi.ecommerce.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.domain.Product;
 import com.shixi.ecommerce.domain.ProductStatus;
+import com.shixi.ecommerce.dto.ProductCreateRequest;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.ProductRepository;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +29,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
@@ -46,7 +54,7 @@ class ProductServiceTest {
 
     @BeforeEach
     void setUp() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         productService = new ProductService(
                 productRepository,
                 inventoryClient,
@@ -105,6 +113,66 @@ class ProductServiceTest {
         assertNotNull(responses.get(0).getPrice());
         verify(productRepository).findAllById(List.of(2L));
         verify(redisTemplate).executePipelined(any(SessionCallback.class));
+    }
+
+    @Test
+    void createProductRegistersRollbackCompensationBeforeInventoryInitFailure() {
+        when(productRepository.saveAndFlush(any(Product.class)))
+                .thenAnswer(invocation -> withId(invocation.getArgument(0), 1001L));
+        doThrow(new RuntimeException("Inventory timeout")).when(inventoryClient).initStock(1001L, 8);
+
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            RuntimeException exception =
+                    assertThrows(RuntimeException.class, () -> productService.createProduct(7L, createRequest(8)));
+
+            assertEquals("Inventory timeout", exception.getMessage());
+            for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+                synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+            }
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+
+        verify(inventoryClient).deleteStock(1001L);
+        verify(productIndexPublisher, never()).publishAfterCommit(any());
+    }
+
+    @Test
+    void getPublicProductResponseRejectsInactiveProductEvenWhenCached() throws Exception {
+        ProductResponse cached = new ProductResponse(
+                1001L, 7L, "Keyboard", "Mechanical keyboard", null, new BigDecimal("399.00"), ProductStatus.INACTIVE);
+        when(valueOperations.get("ver:product:1001")).thenReturn("3");
+        when(valueOperations.get("cache:product:1001:v3")).thenReturn(new ObjectMapper().writeValueAsString(cached));
+
+        BusinessException exception =
+                assertThrows(BusinessException.class, () -> productService.getPublicProductResponse(1001L));
+
+        assertEquals("Product not found", exception.getMessage());
+        verify(productRepository, never()).findById(1001L);
+    }
+
+    @Test
+    void getPublicProductResponseNormalizesMissingProductMessage() {
+        when(valueOperations.get("ver:product:404")).thenReturn(null);
+        when(valueOperations.get("cache:product:404:v0")).thenReturn(null);
+        when(productRepository.findById(404L)).thenReturn(Optional.empty());
+
+        BusinessException exception =
+                assertThrows(BusinessException.class, () -> productService.getPublicProductResponse(404L));
+
+        assertEquals("Product not found", exception.getMessage());
+    }
+
+    private ProductCreateRequest createRequest(int stock) {
+        ProductCreateRequest request = new ProductCreateRequest();
+        request.setName("Keyboard");
+        request.setDescription("Mechanical keyboard");
+        request.setPrice(new BigDecimal("399.00"));
+        request.setStock(stock);
+        return request;
     }
 
     private Product withId(Product product, Long id) {

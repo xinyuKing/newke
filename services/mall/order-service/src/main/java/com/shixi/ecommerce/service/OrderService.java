@@ -11,6 +11,7 @@ import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.dto.CreateOrderRequest;
 import com.shixi.ecommerce.dto.CreateOrderResponse;
 import com.shixi.ecommerce.dto.CursorPageResponse;
+import com.shixi.ecommerce.dto.OrderAddressSnapshotResponse;
 import com.shixi.ecommerce.dto.OrderDetailResponse;
 import com.shixi.ecommerce.dto.OrderItemResponse;
 import com.shixi.ecommerce.dto.OrderLineItem;
@@ -22,9 +23,11 @@ import com.shixi.ecommerce.repository.OrderRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -32,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -58,13 +62,16 @@ public class OrderService {
     private static final String ORDER_LIST_VERSION_PREFIX = "ver:order:list:";
     private static final String ORDER_CACHE_PREFIX = "cache:order:";
     private static final String ORDER_LIST_CACHE_PREFIX = "cache:order:list:";
+    private static final String DUPLICATE_ORDER_REQUEST_IN_PROGRESS_MESSAGE = "Duplicate order request in progress";
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final InventoryClient inventoryClient;
     private final IdempotencyService idempotencyService;
+    private final DuplicateOrderGuardService duplicateOrderGuardService;
     private final OrderEventPublisher eventPublisher;
     private final ProductClient productClient;
+    private final UserAddressClient userAddressClient;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final OrderStateMachine orderStateMachine;
@@ -77,8 +84,10 @@ public class OrderService {
             OrderItemRepository orderItemRepository,
             InventoryClient inventoryClient,
             IdempotencyService idempotencyService,
+            DuplicateOrderGuardService duplicateOrderGuardService,
             OrderEventPublisher eventPublisher,
             ProductClient productClient,
+            UserAddressClient userAddressClient,
             StringRedisTemplate redisTemplate,
             ObjectMapper objectMapper,
             OrderStateMachine orderStateMachine) {
@@ -86,8 +95,10 @@ public class OrderService {
         this.orderItemRepository = orderItemRepository;
         this.inventoryClient = inventoryClient;
         this.idempotencyService = idempotencyService;
+        this.duplicateOrderGuardService = duplicateOrderGuardService;
         this.eventPublisher = eventPublisher;
         this.productClient = productClient;
+        this.userAddressClient = userAddressClient;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.orderStateMachine = orderStateMachine;
@@ -132,12 +143,25 @@ public class OrderService {
             return readCreateOrderResponse(acquireResult.replayPayload());
         }
         if (!acquireResult.locked()) {
-            throw new BusinessException("Duplicate order request in progress");
+            throw new BusinessException(DUPLICATE_ORDER_REQUEST_IN_PROGRESS_MESSAGE);
         }
         boolean deducted = false;
         List<OrderLineItem> pricedItems = null;
+        DuplicateOrderGuardService.AcquireResult duplicateAcquireResult = null;
+        String duplicateFingerprint = null;
         try {
+            OrderAddressSnapshotResponse shippingAddress = userAddressClient.getDefaultShippingAddress(userId);
             pricedItems = priceItems(items);
+            duplicateFingerprint = duplicateFingerprint(userId, bizPrefix, pricedItems, shippingAddress);
+            duplicateAcquireResult = duplicateOrderGuardService.acquire(duplicateFingerprint);
+            if (duplicateAcquireResult.shouldReplay()) {
+                String replayPayload = duplicateAcquireResult.replayPayload();
+                idempotencyService.complete(bizKey, replayPayload);
+                return readCreateOrderResponse(replayPayload);
+            }
+            if (!duplicateAcquireResult.locked()) {
+                throw new BusinessException(DUPLICATE_ORDER_REQUEST_IN_PROGRESS_MESSAGE);
+            }
             boolean ok = inventoryClient.deductBatch(pricedItems);
             if (!ok) {
                 throw new BusinessException("Insufficient stock");
@@ -156,6 +180,7 @@ public class OrderService {
                 order.setMerchantId(merchantId);
                 order.setStatus(OrderStatus.CREATED);
                 order.setTotalAmount(calculateTotal(entry.getValue()));
+                applyShippingAddress(order, shippingAddress);
                 orders.add(order);
                 orderNos.add(orderNo);
 
@@ -166,6 +191,8 @@ public class OrderService {
                     orderItem.setSkuId(line.getSkuId());
                     orderItem.setQuantity(line.getQuantity());
                     orderItem.setPrice(line.getPrice());
+                    orderItem.setProductName(line.getProductName());
+                    orderItem.setProductDescription(line.getProductDescription());
                     orderItems.add(orderItem);
                 }
             }
@@ -179,11 +206,23 @@ public class OrderService {
             String primaryOrderNo = orderNos.get(0);
             CreateOrderResponse response =
                     new CreateOrderResponse(primaryOrderNo, OrderStatus.CREATED, orderNos, orderNos.size() > 1);
-            idempotencyService.complete(bizKey, writeCreateOrderResponse(response));
+            String responsePayload = writeCreateOrderResponse(response);
+            idempotencyService.complete(bizKey, responsePayload);
+            if (duplicateFingerprint != null) {
+                duplicateOrderGuardService.complete(
+                        duplicateFingerprint,
+                        duplicateAcquireResult == null ? null : duplicateAcquireResult.lockToken(),
+                        responsePayload);
+            }
             return response;
         } catch (RuntimeException ex) {
             if (deducted && pricedItems != null) {
                 inventoryClient.releaseBatch(pricedItems);
+            }
+            if (duplicateFingerprint != null) {
+                duplicateOrderGuardService.release(
+                        duplicateFingerprint,
+                        duplicateAcquireResult == null ? null : duplicateAcquireResult.lockToken());
             }
             if (acquireResult.locked()) {
                 idempotencyService.release(bizKey);
@@ -335,7 +374,7 @@ public class OrderService {
                 .findByOrderNoAndUserId(orderNo, userId)
                 .orElseThrow(() -> new BusinessException("Order not found"));
         List<OrderItemResponse> items = orderItemRepository.findByOrderNo(orderNo).stream()
-                .map(item -> new OrderItemResponse(item.getSkuId(), item.getQuantity(), item.getPrice()))
+                .map(this::toOrderItemResponse)
                 .collect(Collectors.toList());
         OrderDetailResponse response = new OrderDetailResponse(
                 order.getOrderNo(),
@@ -346,6 +385,7 @@ public class OrderService {
                 order.getTrackingNo(),
                 order.getShippedAt(),
                 order.getCreatedAt(),
+                toAddressSnapshot(order),
                 items);
         setCache(cacheKey, response, ORDER_CACHE_TTL);
         return response;
@@ -367,7 +407,7 @@ public class OrderService {
             throw new BusinessException("Order not found");
         }
         List<OrderItemResponse> items = orderItemRepository.findByOrderNo(orderNo).stream()
-                .map(item -> new OrderItemResponse(item.getSkuId(), item.getQuantity(), item.getPrice()))
+                .map(this::toOrderItemResponse)
                 .collect(Collectors.toList());
         return new OrderRefundSnapshotResponse(
                 order.getOrderNo(),
@@ -379,6 +419,7 @@ public class OrderService {
                 order.getTrackingNo(),
                 order.getShippedAt(),
                 order.getCreatedAt(),
+                toAddressSnapshot(order),
                 items);
     }
 
@@ -520,9 +561,57 @@ public class OrderService {
                 throw new BusinessException("Product merchant missing: " + item.getSkuId());
             }
             pricedItems.add(new OrderLineItem(
-                    item.getSkuId(), item.getQuantity(), product.getPrice(), product.getMerchantId()));
+                    item.getSkuId(),
+                    item.getQuantity(),
+                    product.getPrice(),
+                    product.getMerchantId(),
+                    product.getName(),
+                    product.getDescription()));
         }
         return pricedItems;
+    }
+
+    private OrderItemResponse toOrderItemResponse(OrderItem item) {
+        return new OrderItemResponse(
+                item.getSkuId(),
+                item.getQuantity(),
+                item.getPrice(),
+                item.getProductName(),
+                item.getProductDescription());
+    }
+
+    private OrderAddressSnapshotResponse toAddressSnapshot(Order order) {
+        if (order == null) {
+            return null;
+        }
+        if ((order.getReceiverName() == null || order.getReceiverName().isBlank())
+                && (order.getReceiverPhone() == null || order.getReceiverPhone().isBlank())
+                && (order.getDetailAddress() == null || order.getDetailAddress().isBlank())) {
+            return null;
+        }
+        return new OrderAddressSnapshotResponse(
+                order.getReceiverName(),
+                order.getReceiverPhone(),
+                order.getProvince(),
+                order.getCity(),
+                order.getDistrict(),
+                order.getDetailAddress(),
+                order.getPostalCode(),
+                order.getAddressTag());
+    }
+
+    private void applyShippingAddress(Order order, OrderAddressSnapshotResponse shippingAddress) {
+        if (order == null || shippingAddress == null) {
+            return;
+        }
+        order.setReceiverName(shippingAddress.getReceiverName());
+        order.setReceiverPhone(shippingAddress.getReceiverPhone());
+        order.setProvince(shippingAddress.getProvince());
+        order.setCity(shippingAddress.getCity());
+        order.setDistrict(shippingAddress.getDistrict());
+        order.setDetailAddress(shippingAddress.getDetailAddress());
+        order.setPostalCode(shippingAddress.getPostalCode());
+        order.setAddressTag(shippingAddress.getTag());
     }
 
     private Map<Long, List<OrderLineItem>> groupItemsByMerchant(List<OrderLineItem> items) {
@@ -543,6 +632,34 @@ public class OrderService {
             total = total.add(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
         }
         return total;
+    }
+
+    private String duplicateFingerprint(
+            Long userId, String bizPrefix, List<OrderLineItem> items, OrderAddressSnapshotResponse shippingAddress) {
+        Map<String, Integer> merged = new TreeMap<>();
+        for (OrderLineItem item : items) {
+            String key = item.getSkuId() + ":" + item.getMerchantId() + ":" + item.getPrice();
+            merged.merge(key, item.getQuantity(), Integer::sum);
+        }
+        StringBuilder builder = new StringBuilder();
+        builder.append(bizPrefix).append(':').append(userId);
+        for (Map.Entry<String, Integer> entry : merged.entrySet()) {
+            builder.append('|').append(entry.getKey()).append(':').append(entry.getValue());
+        }
+        builder.append("|addr:").append(encodeAddressFingerprint(shippingAddress));
+        return builder.toString();
+    }
+
+    private String encodeAddressFingerprint(OrderAddressSnapshotResponse shippingAddress) {
+        if (shippingAddress == null) {
+            return "none";
+        }
+        try {
+            String json = objectMapper.writeValueAsString(shippingAddress);
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(json.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ex) {
+            throw new IllegalStateException("Unable to encode shipping address fingerprint", ex);
+        }
     }
 
     private String writeCreateOrderResponse(CreateOrderResponse response) {

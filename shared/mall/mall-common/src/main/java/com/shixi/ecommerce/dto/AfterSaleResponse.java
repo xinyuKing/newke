@@ -2,6 +2,7 @@ package com.shixi.ecommerce.dto;
 
 import com.shixi.ecommerce.domain.AfterSaleStatus;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 售后响应。
@@ -14,12 +15,16 @@ public class AfterSaleResponse {
     private String orderNo;
     private Long skuId;
     private Integer quantity;
+    private String productName;
+    private String productDescription;
     private String reason;
+    private String evidenceNote;
+    private List<String> evidenceUrls;
     private AfterSaleStatus status;
     private LocalDateTime createdAt;
 
     public AfterSaleResponse(Long id, String orderNo, String reason, AfterSaleStatus status, LocalDateTime createdAt) {
-        this(id, orderNo, null, null, reason, status, createdAt);
+        this(id, orderNo, null, null, null, null, reason, null, List.of(), status, createdAt);
     }
 
     public AfterSaleResponse(
@@ -27,14 +32,22 @@ public class AfterSaleResponse {
             String orderNo,
             Long skuId,
             Integer quantity,
+            String productName,
+            String productDescription,
             String reason,
+            String evidenceNote,
+            List<String> evidenceUrls,
             AfterSaleStatus status,
             LocalDateTime createdAt) {
         this.id = id;
         this.orderNo = orderNo;
         this.skuId = skuId;
         this.quantity = quantity;
+        this.productName = productName;
+        this.productDescription = productDescription;
         this.reason = reason;
+        this.evidenceNote = evidenceNote;
+        this.evidenceUrls = evidenceUrls == null ? List.of() : List.copyOf(evidenceUrls);
         this.status = status;
         this.createdAt = createdAt;
     }
@@ -55,8 +68,28 @@ public class AfterSaleResponse {
         return quantity;
     }
 
+    public String getProductName() {
+        return productName;
+    }
+
+    public String getProductDescription() {
+        return productDescription;
+    }
+
     public String getReason() {
         return reason;
+    }
+
+    public String getEvidenceNote() {
+        return evidenceNote;
+    }
+
+    public List<String> getEvidenceUrls() {
+        return evidenceUrls;
+    }
+
+    public boolean isEvidenceProvided() {
+        return (evidenceNote != null && !evidenceNote.isBlank()) || (evidenceUrls != null && !evidenceUrls.isEmpty());
     }
 
     public AfterSaleStatus getStatus() {

@@ -81,9 +81,12 @@
               <input v-model="addressForm.tag" placeholder="Home / Office" />
             </label>
             <label class="toggle">
-              <input v-model="addressForm.isDefault" type="checkbox" />
+              <input v-model="addressForm.isDefault" type="checkbox" :disabled="isEditingDefaultAddress" />
               <span>Set as default</span>
             </label>
+            <p v-if="isEditingDefaultAddress" class="muted full">
+              This address is currently default. Use another saved address's `Default` action before switching away.
+            </p>
           </div>
 
           <button type="button" class="solid" @click="submitAddress">
@@ -124,7 +127,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { RouterLink } from "vue-router";
 import mallApi from "../api/mall";
 import { useAuthStore } from "../../../stores/auth";
@@ -156,6 +159,10 @@ const createEmptyAddress = () => ({
 });
 
 const addressForm = reactive(createEmptyAddress());
+
+const isEditingDefaultAddress = computed(() =>
+  addresses.value.some((address) => address.id === editingAddressId.value && address.isDefault)
+);
 
 const loadProfile = async () => {
   const { data } = await mallApi.get("/user/profile");

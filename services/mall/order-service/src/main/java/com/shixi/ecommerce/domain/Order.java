@@ -55,6 +55,30 @@ public class Order {
 
     private LocalDateTime shippedAt;
 
+    @Column(length = 32)
+    private String receiverName;
+
+    @Column(length = 32)
+    private String receiverPhone;
+
+    @Column(length = 64)
+    private String province;
+
+    @Column(length = 64)
+    private String city;
+
+    @Column(length = 64)
+    private String district;
+
+    @Column(length = 256)
+    private String detailAddress;
+
+    @Column(length = 16)
+    private String postalCode;
+
+    @Column(length = 32)
+    private String addressTag;
+
     @Version
     private Long version;
 
@@ -139,6 +163,70 @@ public class Order {
 
     public void setShippedAt(LocalDateTime shippedAt) {
         this.shippedAt = shippedAt;
+    }
+
+    public String getReceiverName() {
+        return receiverName;
+    }
+
+    public void setReceiverName(String receiverName) {
+        this.receiverName = receiverName;
+    }
+
+    public String getReceiverPhone() {
+        return receiverPhone;
+    }
+
+    public void setReceiverPhone(String receiverPhone) {
+        this.receiverPhone = receiverPhone;
+    }
+
+    public String getProvince() {
+        return province;
+    }
+
+    public void setProvince(String province) {
+        this.province = province;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getDetailAddress() {
+        return detailAddress;
+    }
+
+    public void setDetailAddress(String detailAddress) {
+        this.detailAddress = detailAddress;
+    }
+
+    public String getPostalCode() {
+        return postalCode;
+    }
+
+    public void setPostalCode(String postalCode) {
+        this.postalCode = postalCode;
+    }
+
+    public String getAddressTag() {
+        return addressTag;
+    }
+
+    public void setAddressTag(String addressTag) {
+        this.addressTag = addressTag;
     }
 
     public Long getVersion() {

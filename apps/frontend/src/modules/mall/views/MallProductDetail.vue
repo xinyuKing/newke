@@ -31,15 +31,17 @@
 
           <label class="qty-field">
             <span>Quantity</span>
-            <input v-model.number="quantity" type="number" min="1" />
+            <input v-model.number="quantity" :disabled="buyNowLocked" type="number" min="1" />
           </label>
 
           <div class="purchase-actions">
-            <button type="button" class="solid" @click="addToCart">Add to cart</button>
-            <button type="button" class="ghost" @click="buyNow">Buy now</button>
+            <button type="button" class="solid" :disabled="buyNowLocked" @click="addToCart">Add to cart</button>
+            <button type="button" class="ghost" :disabled="buyNowSubmitting" @click="buyNow">
+              {{ buyNowButtonLabel }}
+            </button>
           </div>
 
-          <p v-if="message" class="muted">{{ message }}</p>
+          <p v-if="purchaseMessage" class="muted">{{ purchaseMessage }}</p>
           <RouterLink class="jump-link" to="/mall/cart">Go to cart</RouterLink>
         </aside>
       </div>
@@ -54,16 +56,23 @@
             <span class="score">{{ formatStars(averageRating) }}</span>
           </div>
 
-          <div v-if="reviews.length" class="review-list">
-            <article v-for="review in reviews" :key="review.id" class="review-item">
-              <div class="review-meta">
-                <strong>{{ formatStars(review.rating) }}</strong>
-                <span>user {{ review.userId }}</span>
-                <span>{{ formatDateTime(review.createdAt) }}</span>
-              </div>
-              <p>{{ review.content }}</p>
-            </article>
-          </div>
+          <template v-if="reviews.length">
+            <div class="review-list">
+              <article v-for="review in reviews" :key="review.id" class="review-item">
+                <div class="review-meta">
+                  <strong>{{ formatStars(review.rating) }}</strong>
+                  <span>user {{ review.userId }}</span>
+                  <span>{{ formatDateTime(review.createdAt) }}</span>
+                </div>
+                <p>{{ review.content }}</p>
+              </article>
+            </div>
+            <div v-if="hasMoreReviews" class="more-actions">
+              <button type="button" class="ghost" :disabled="loadingMoreReviews" @click="loadMoreReviews">
+                {{ loadingMoreReviews ? "Loading more..." : "Load more reviews" }}
+              </button>
+            </div>
+          </template>
           <div v-else class="empty-note">No reviews yet. The first comment still gets the whole stage.</div>
         </section>
 
@@ -111,21 +120,105 @@ import { RouterLink, useRoute, useRouter } from "vue-router";
 import mallApi from "../api/mall";
 import { useAuthStore } from "../../../stores/auth";
 import { createIdempotencyKey, formatCurrency, formatDateTime, formatStars } from "../utils/format";
+import {
+  clearPendingIdempotencyKey,
+  clearPendingIdempotencyPayload,
+  getPendingIdempotencyKey,
+  getPendingIdempotencyPayload,
+  resolveIdempotentRequestFailure,
+  setPendingIdempotencyKey,
+  setPendingIdempotencyPayload
+} from "../utils/idempotency";
 
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+const REVIEW_PAGE_SIZE = 8;
 
 const product = ref(null);
 const summary = ref(null);
 const reviews = ref([]);
 const quantity = ref(1);
 const loading = ref(false);
+const loadingMoreReviews = ref(false);
 const message = ref("");
+const buyNowSubmitting = ref(false);
+const buyNowKey = ref("");
+const hasMoreReviews = ref(false);
+const nextReviewCursorTime = ref(null);
+const nextReviewCursorId = ref(null);
+const reviewRequestToken = ref(0);
+const PENDING_BUY_NOW_MESSAGE =
+  "A buy-now request is still pending. Retry buy now to reuse the same request. Quantity changes stay locked until it resolves.";
 const reviewForm = reactive({
   rating: 5,
   content: ""
 });
+
+const buyNowStorageMeta = computed(() => ({
+  scope: "buy-now",
+  owner: auth.mallToken?.slice(-12) || "shopper",
+  subject: route.params.id || "product"
+}));
+
+const clearBuyNowLocalState = () => {
+  buyNowKey.value = "";
+};
+
+const resetBuyNowKey = () => {
+  clearBuyNowLocalState();
+  clearPendingIdempotencyKey(buyNowStorageMeta.value);
+  clearPendingIdempotencyPayload(buyNowStorageMeta.value);
+};
+
+const ensureBuyNowKey = (nextQuantity) => {
+  if (!buyNowKey.value) {
+    const storedKey = getPendingIdempotencyKey(buyNowStorageMeta.value);
+    buyNowKey.value = storedKey || createIdempotencyKey("buy");
+    setPendingIdempotencyKey(buyNowStorageMeta.value, buyNowKey.value);
+  }
+  setPendingIdempotencyPayload(buyNowStorageMeta.value, {
+    quantity: Math.max(1, Number(nextQuantity) || 1)
+  });
+  return buyNowKey.value;
+};
+
+const buyNowPending = computed(() => Boolean(buyNowKey.value));
+
+const buyNowLocked = computed(() => buyNowSubmitting.value || buyNowPending.value);
+
+const buyNowButtonLabel = computed(() => {
+  if (buyNowSubmitting.value) return "Submitting...";
+  if (buyNowPending.value) return "Retry buy now";
+  return "Buy now";
+});
+
+const purchaseMessage = computed(() => message.value || (buyNowPending.value ? PENDING_BUY_NOW_MESSAGE : ""));
+
+const mergeReviews = (current, incoming) => {
+  const merged = [...current];
+  const seen = new Set(current.map((item) => item.id));
+  incoming.forEach((item) => {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      merged.push(item);
+    }
+  });
+  return merged;
+};
+
+const resetReviewFeed = () => {
+  reviews.value = [];
+  hasMoreReviews.value = false;
+  nextReviewCursorTime.value = null;
+  nextReviewCursorId.value = null;
+};
+
+const updateReviewCursor = (payload) => {
+  hasMoreReviews.value = Boolean(payload?.hasNext);
+  nextReviewCursorTime.value = payload?.nextCursorTime || null;
+  nextReviewCursorId.value = payload?.nextCursorId ?? null;
+};
 
 const averageRating = computed(() => {
   if (!reviews.value.length) return 0;
@@ -147,22 +240,68 @@ const loadProduct = async () => {
   loading.value = true;
   try {
     const id = route.params.id;
-    const [productResp, summaryResp, reviewResp] = await Promise.all([
+    const [productResp, summaryResp] = await Promise.all([
       mallApi.get(`/products/${id}`),
-      mallApi.get(`/products/${id}/review-summary`),
-      mallApi.get(`/products/${id}/reviews`, { params: { page: 1, size: 8 } })
+      mallApi.get(`/products/${id}/review-summary`)
     ]);
     product.value = productResp.data?.success ? productResp.data.data : null;
     summary.value = summaryResp.data?.success ? summaryResp.data.data : null;
-    reviews.value = reviewResp.data?.success ? reviewResp.data.data?.items || [] : [];
+    await loadReviews();
   } finally {
     loading.value = false;
   }
 };
 
+const loadReviews = async ({ append = false } = {}) => {
+  const productId = route.params.id;
+  if (!productId) {
+    resetReviewFeed();
+    return;
+  }
+  if (append) {
+    if (loading.value || loadingMoreReviews.value || !hasMoreReviews.value) return;
+    loadingMoreReviews.value = true;
+  } else {
+    resetReviewFeed();
+  }
+  const requestToken = ++reviewRequestToken.value;
+  try {
+    const params = {
+      size: REVIEW_PAGE_SIZE
+    };
+    if (append) {
+      params.cursorTime = nextReviewCursorTime.value;
+      params.cursorId = nextReviewCursorId.value;
+    }
+    const response = await mallApi.get(`/products/${productId}/reviews/cursor`, { params });
+    if (requestToken !== reviewRequestToken.value) return;
+    if (!response.data?.success) {
+      if (!append) {
+        resetReviewFeed();
+      }
+      return;
+    }
+    const nextItems = response.data.data?.items || [];
+    reviews.value = append ? mergeReviews(reviews.value, nextItems) : nextItems;
+    updateReviewCursor(response.data.data);
+  } finally {
+    if (append) {
+      loadingMoreReviews.value = false;
+    }
+  }
+};
+
+const loadMoreReviews = async () => {
+  await loadReviews({ append: true });
+};
+
 const addToCart = async () => {
   message.value = "";
   if (!ensureMallLogin()) return;
+  if (buyNowLocked.value) {
+    message.value = PENDING_BUY_NOW_MESSAGE;
+    return;
+  }
   const { data } = await mallApi.post("/user/cart/items", {
     skuId: product.value.id,
     quantity: Math.max(1, Number(quantity.value) || 1)
@@ -173,18 +312,34 @@ const addToCart = async () => {
 const buyNow = async () => {
   message.value = "";
   if (!ensureMallLogin()) return;
-  const { data } = await mallApi.post("/user/orders/purchase", {
-    skuId: product.value.id,
-    quantity: Math.max(1, Number(quantity.value) || 1),
-    idempotencyKey: createIdempotencyKey("buy")
-  });
-  const orderNos = data?.data?.orderNos || [];
-  const primaryOrderNo = data?.data?.orderNo || orderNos[0];
-  if (data?.success && primaryOrderNo) {
-    router.push(`/mall/orders/${primaryOrderNo}`);
-    return;
+  if (buyNowSubmitting.value) return;
+  buyNowSubmitting.value = true;
+  const nextQuantity = Math.max(1, Number(quantity.value) || 1);
+  const idempotencyKey = ensureBuyNowKey(nextQuantity);
+  try {
+    const response = await mallApi.post("/user/orders/purchase", {
+      skuId: product.value.id,
+      quantity: nextQuantity,
+      idempotencyKey
+    });
+    const { data } = response;
+    const orderNos = data?.data?.orderNos || [];
+    const primaryOrderNo = data?.data?.orderNo || orderNos[0];
+    if (data?.success && primaryOrderNo) {
+      resetBuyNowKey();
+      router.push(`/mall/orders/${primaryOrderNo}`);
+      return;
+    }
+    const failure = resolveIdempotentRequestFailure(response, "Create order failed.", PENDING_BUY_NOW_MESSAGE);
+    if (!failure.ambiguous) {
+      resetBuyNowKey();
+    }
+    message.value = failure.message;
+  } catch (error) {
+    message.value = PENDING_BUY_NOW_MESSAGE;
+  } finally {
+    buyNowSubmitting.value = false;
   }
-  message.value = data?.message || "Create order failed.";
 };
 
 const submitReview = async () => {
@@ -214,8 +369,39 @@ watch(
   () => route.params.id,
   async () => {
     quantity.value = 1;
+    message.value = "";
+    clearBuyNowLocalState();
+    reviewRequestToken.value += 1;
+    resetReviewFeed();
     await loadProduct();
   }
+);
+
+watch(quantity, () => {
+  if (buyNowPending.value) {
+    return;
+  }
+  resetBuyNowKey();
+});
+
+watch(
+  buyNowStorageMeta,
+  (meta) => {
+    if (!auth.mallCanShop) {
+      clearBuyNowLocalState();
+      return;
+    }
+    buyNowKey.value = getPendingIdempotencyKey(meta);
+    if (!buyNowKey.value) {
+      return;
+    }
+    const pendingPayload = getPendingIdempotencyPayload(meta);
+    const pendingQuantity = Number(pendingPayload?.quantity);
+    if (pendingQuantity >= 1) {
+      quantity.value = pendingQuantity;
+    }
+  },
+  { immediate: true }
 );
 
 onMounted(loadProduct);
@@ -384,6 +570,11 @@ textarea {
   gap: 14px;
 }
 
+.more-actions {
+  display: flex;
+  justify-content: center;
+}
+
 .review-item {
   padding: 14px;
   border: 1px solid var(--border);
@@ -408,6 +599,13 @@ textarea {
 
 .action-link {
   width: fit-content;
+}
+
+input:disabled,
+.solid:disabled,
+.ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 @media (max-width: 920px) {

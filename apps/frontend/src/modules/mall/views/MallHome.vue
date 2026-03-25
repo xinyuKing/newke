@@ -82,9 +82,16 @@
     </section>
 
     <div v-if="loading" class="empty card">Loading products...</div>
-    <div v-else-if="products.length" class="product-grid">
-      <MallProductCard v-for="item in products" :key="item.id" :item="item" @add="quickAdd" />
-    </div>
+    <template v-else-if="products.length">
+      <div class="product-grid">
+        <MallProductCard v-for="item in products" :key="item.id" :item="item" @add="quickAdd" />
+      </div>
+      <div v-if="hasMoreProducts" class="more-actions">
+        <button type="button" class="ghost" :disabled="loadingMoreProducts" @click="loadMoreProducts">
+          {{ loadingMoreProducts ? "Loading more..." : "Load more products" }}
+        </button>
+      </div>
+    </template>
     <div v-else class="empty card">
       <h3>No products found</h3>
       <p>Try another keyword, or clear the search and browse everything currently active.</p>
@@ -105,16 +112,47 @@ import { formatCurrency, truncate } from "../utils/format";
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+const PRODUCT_PAGE_SIZE = 12;
 
 const products = ref([]);
 const recommendations = ref([]);
 const hotPosts = ref([]);
 const loading = ref(false);
+const loadingMoreProducts = ref(false);
 const keyword = ref("");
 const draftKeyword = ref("");
 const message = ref("");
+const hasMoreProducts = ref(false);
+const nextProductCursorTime = ref(null);
+const nextProductCursorId = ref(null);
+const productRequestToken = ref(0);
 
 const normalizeItems = (payload) => (Array.isArray(payload) ? payload : payload?.items || []);
+
+const mergeProducts = (current, incoming) => {
+  const merged = [...current];
+  const seen = new Set(current.map((item) => item.id));
+  incoming.forEach((item) => {
+    if (!seen.has(item.id)) {
+      seen.add(item.id);
+      merged.push(item);
+    }
+  });
+  return merged;
+};
+
+const resetProductFeed = () => {
+  products.value = [];
+  hasMoreProducts.value = false;
+  nextProductCursorTime.value = null;
+  nextProductCursorId.value = null;
+};
+
+const updateProductCursor = (payload) => {
+  hasMoreProducts.value = Boolean(payload?.hasNext);
+  nextProductCursorTime.value = payload?.nextCursorTime || null;
+  nextProductCursorId.value = payload?.nextCursorId ?? null;
+};
 
 const loadRecommendations = async () => {
   const { data } = await mallApi.get("/products/recommend", { params: { size: 4 } });
@@ -134,17 +172,53 @@ const loadHotPosts = async () => {
   }
 };
 
-const loadProducts = async () => {
-  loading.value = true;
-  try {
-    const endpoint = keyword.value ? "/products/search" : "/products";
-    const { data } = await mallApi.get(endpoint, {
-      params: keyword.value ? { q: keyword.value, size: 12 } : { page: 1, size: 12 }
-    });
-    products.value = data?.success ? normalizeItems(data.data) : [];
-  } finally {
-    loading.value = false;
+const loadProducts = async ({ append = false } = {}) => {
+  if (append) {
+    if (loading.value || loadingMoreProducts.value || !hasMoreProducts.value) return;
+    loadingMoreProducts.value = true;
+  } else {
+    loading.value = true;
+    resetProductFeed();
   }
+  const requestToken = ++productRequestToken.value;
+  try {
+    const endpoint = keyword.value ? "/products/search" : "/products/cursor";
+    const params = {
+      size: PRODUCT_PAGE_SIZE
+    };
+    if (keyword.value) {
+      params.q = keyword.value;
+    }
+    if (append) {
+      params.cursorTime = nextProductCursorTime.value;
+      params.cursorId = nextProductCursorId.value;
+    }
+    const { data } = await mallApi.get(endpoint, {
+      params
+    });
+    if (requestToken !== productRequestToken.value) return;
+    if (!data?.success) {
+      if (!append) {
+        resetProductFeed();
+      }
+      return;
+    }
+    const nextItems = normalizeItems(data.data);
+    products.value = append ? mergeProducts(products.value, nextItems) : nextItems;
+    updateProductCursor(data.data);
+  } finally {
+    if (append) {
+      loadingMoreProducts.value = false;
+      return;
+    }
+    if (requestToken === productRequestToken.value) {
+      loading.value = false;
+    }
+  }
+};
+
+const loadMoreProducts = async () => {
+  await loadProducts({ append: true });
 };
 
 const applySearch = () => {
@@ -388,6 +462,16 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
   gap: 18px;
+}
+
+.more-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.more-actions .ghost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .empty {

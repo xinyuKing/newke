@@ -1,15 +1,16 @@
 package com.shixi.ecommerce.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.domain.CartItem;
 import com.shixi.ecommerce.domain.ProductStatus;
 import com.shixi.ecommerce.dto.CartItemResponse;
 import com.shixi.ecommerce.dto.ProductResponse;
 import com.shixi.ecommerce.repository.CartItemRepository;
-import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -24,24 +25,17 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class CartService {
-    private static final Duration CART_CACHE_TTL = Duration.ofMinutes(2);
     private static final String CART_VERSION_PREFIX = "ver:cart:";
-    private static final String CART_CACHE_PREFIX = "cache:cart:";
 
     private final CartItemRepository cartItemRepository;
     private final ProductClient productClient;
     private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
 
     public CartService(
-            CartItemRepository cartItemRepository,
-            ProductClient productClient,
-            StringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper) {
+            CartItemRepository cartItemRepository, ProductClient productClient, StringRedisTemplate redisTemplate) {
         this.cartItemRepository = cartItemRepository;
         this.productClient = productClient;
         this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
     }
 
     /**
@@ -63,7 +57,8 @@ public class CartService {
         if (product == null || product.getStatus() != ProductStatus.ACTIVE) {
             throw new BusinessException("Product inactive: " + skuId);
         }
-        int updated = cartItemRepository.increaseQuantity(userId, skuId, quantity, product.getPrice());
+        int updated = cartItemRepository.increaseQuantity(
+                userId, skuId, quantity, product.getPrice(), product.getName(), product.getDescription());
         if (updated > 0) {
             bumpCartVersion(userId);
             return;
@@ -73,10 +68,13 @@ public class CartService {
         item.setSkuId(skuId);
         item.setQuantity(quantity);
         item.setPriceSnapshot(product.getPrice());
+        item.setProductNameSnapshot(product.getName());
+        item.setProductDescriptionSnapshot(product.getDescription());
         try {
             cartItemRepository.save(item);
         } catch (DataIntegrityViolationException ex) {
-            int retry = cartItemRepository.increaseQuantity(userId, skuId, quantity, product.getPrice());
+            int retry = cartItemRepository.increaseQuantity(
+                    userId, skuId, quantity, product.getPrice(), product.getName(), product.getDescription());
             if (retry == 0) {
                 throw new BusinessException("Cart update failed");
             }
@@ -109,18 +107,21 @@ public class CartService {
      * @param userId 用户 ID
      * @return 购物车条目列表
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<CartItemResponse> listItems(Long userId) {
-        String version = getVersion(cartVersionKey(userId));
-        String cacheKey = CART_CACHE_PREFIX + userId + ":v" + version;
-        List<CartItemResponse> cached = getCache(cacheKey, new TypeReference<List<CartItemResponse>>() {});
-        if (cached != null) {
-            return cached;
+        List<CartItem> cartItems = cartItemRepository.findByUserId(userId);
+        if (cartItems.isEmpty()) {
+            return List.of();
         }
-        List<CartItemResponse> items = cartItemRepository.findByUserId(userId).stream()
-                .map(item -> new CartItemResponse(item.getSkuId(), item.getQuantity(), item.getPriceSnapshot()))
+        ProductLookupResult productLookup = fetchProductMap(cartItems);
+        List<CartItem> dirtyItems = new ArrayList<>();
+        List<CartItemResponse> items = cartItems.stream()
+                .map(item -> toCartItemResponse(
+                        item, productLookup.products().get(item.getSkuId()), productLookup.degraded(), dirtyItems))
                 .collect(Collectors.toList());
-        setCache(cacheKey, items, CART_CACHE_TTL);
+        if (!dirtyItems.isEmpty()) {
+            cartItemRepository.saveAll(dirtyItems);
+        }
         return items;
     }
 
@@ -162,14 +163,6 @@ public class CartService {
         return CART_VERSION_PREFIX + userId;
     }
 
-    private String getVersion(String key) {
-        String value = redisTemplate.opsForValue().get(key);
-        if (value == null) {
-            return "0";
-        }
-        return value;
-    }
-
     private void bumpCartVersion(Long userId) {
         if (userId == null) {
             return;
@@ -177,23 +170,85 @@ public class CartService {
         redisTemplate.opsForValue().increment(cartVersionKey(userId));
     }
 
-    private <T> T getCache(String key, TypeReference<T> typeRef) {
-        String json = redisTemplate.opsForValue().get(key);
-        if (json == null || json.isBlank()) {
-            return null;
+    private ProductLookupResult fetchProductMap(List<CartItem> cartItems) {
+        List<Long> skuIds = cartItems.stream()
+                .map(CartItem::getSkuId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (skuIds.isEmpty()) {
+            return new ProductLookupResult(Map.of(), false);
         }
         try {
-            return objectMapper.readValue(json, typeRef);
-        } catch (Exception ex) {
-            return null;
+            Map<Long, ProductResponse> products = productClient.getProducts(skuIds).stream()
+                    .filter(Objects::nonNull)
+                    .filter(product -> product.getId() != null)
+                    .collect(Collectors.toMap(
+                            ProductResponse::getId, product -> product, (left, right) -> left, LinkedHashMap::new));
+            return new ProductLookupResult(products, false);
+        } catch (RuntimeException ex) {
+            return new ProductLookupResult(Map.of(), true);
         }
     }
 
-    private void setCache(String key, Object value, Duration ttl) {
-        try {
-            String json = objectMapper.writeValueAsString(value);
-            redisTemplate.opsForValue().set(key, json, ttl);
-        } catch (Exception ignored) {
+    private CartItemResponse toCartItemResponse(
+            CartItem item, ProductResponse product, boolean degraded, List<CartItem> dirtyItems) {
+        if (product == null) {
+            return new CartItemResponse(
+                    item.getSkuId(),
+                    item.getQuantity(),
+                    item.getPriceSnapshot(),
+                    item.getProductNameSnapshot(),
+                    item.getProductDescriptionSnapshot(),
+                    null,
+                    degraded ? null : Boolean.FALSE);
         }
+        if (product.getStatus() != ProductStatus.ACTIVE) {
+            return new CartItemResponse(
+                    item.getSkuId(),
+                    item.getQuantity(),
+                    item.getPriceSnapshot(),
+                    item.getProductNameSnapshot(),
+                    item.getProductDescriptionSnapshot(),
+                    product.getStatus(),
+                    false);
+        }
+        if (applyLiveSnapshot(item, product)) {
+            dirtyItems.add(item);
+        }
+        return new CartItemResponse(
+                item.getSkuId(),
+                item.getQuantity(),
+                item.getPriceSnapshot(),
+                item.getProductNameSnapshot(),
+                item.getProductDescriptionSnapshot(),
+                product.getStatus(),
+                true);
     }
+
+    private boolean applyLiveSnapshot(CartItem item, ProductResponse product) {
+        boolean dirty = false;
+        if (!samePrice(item.getPriceSnapshot(), product.getPrice())) {
+            item.setPriceSnapshot(product.getPrice());
+            dirty = true;
+        }
+        if (!Objects.equals(item.getProductNameSnapshot(), product.getName())) {
+            item.setProductNameSnapshot(product.getName());
+            dirty = true;
+        }
+        if (!Objects.equals(item.getProductDescriptionSnapshot(), product.getDescription())) {
+            item.setProductDescriptionSnapshot(product.getDescription());
+            dirty = true;
+        }
+        return dirty;
+    }
+
+    private boolean samePrice(java.math.BigDecimal left, java.math.BigDecimal right) {
+        if (left == null || right == null) {
+            return Objects.equals(left, right);
+        }
+        return left.compareTo(right) == 0;
+    }
+
+    private record ProductLookupResult(Map<Long, ProductResponse> products, boolean degraded) {}
 }

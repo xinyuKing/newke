@@ -78,6 +78,35 @@ class ChatServiceTest {
         verify(messageRepository, never()).findBySessionIdOrderByCreatedAtAsc("SESSION-1");
     }
 
+    @Test
+    void listMessagesForSupportRejectsUnclaimedSession() {
+        when(sessionRepository.findBySessionId("SESSION-1")).thenReturn(Optional.of(session("SESSION-1", 42L)));
+
+        assertThrows(BusinessException.class, () -> chatService.listMessagesForSupport(7L, "SESSION-1"));
+        verify(messageRepository, never()).findBySessionIdOrderByCreatedAtAsc("SESSION-1");
+    }
+
+    @Test
+    void closeSessionRejectsUnclaimedSession() {
+        when(sessionRepository.findBySessionId("SESSION-1")).thenReturn(Optional.of(session("SESSION-1", 42L)));
+
+        assertThrows(BusinessException.class, () -> chatService.closeSession(7L, "SESSION-1"));
+        verify(sessionRepository, never()).save(org.mockito.ArgumentMatchers.any(ChatSession.class));
+    }
+
+    @Test
+    void claimSessionAssignsUnclaimedSession() {
+        ChatSession session = session("SESSION-1", 42L);
+        when(sessionRepository.findBySessionId("SESSION-1")).thenReturn(Optional.of(session));
+        when(sessionRepository.save(org.mockito.ArgumentMatchers.any(ChatSession.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ChatSession claimed = chatService.claimSession(7L, "SESSION-1");
+
+        assertEquals(7L, claimed.getSupportId());
+        verify(sessionRepository).save(session);
+    }
+
     private ChatSession session(String sessionId, Long userId) {
         ChatSession session = new ChatSession();
         session.setSessionId(sessionId);

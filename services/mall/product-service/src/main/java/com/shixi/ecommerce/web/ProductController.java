@@ -74,11 +74,12 @@ public class ProductController {
 
     @GetMapping("/{id}")
     public ApiResponse<ProductResponse> getById(@PathVariable Long id) {
-        return ApiResponse.ok(productService.getProductResponse(id));
+        return ApiResponse.ok(productService.getPublicProductResponse(id));
     }
 
     @GetMapping("/{id}/review-summary")
     public ApiResponse<ReviewSummaryResponse> getReviewSummary(@PathVariable Long id) {
+        productService.assertPublicProductAccessible(id);
         return ApiResponse.ok(reviewSummaryService.getSummary(id));
     }
 
@@ -88,6 +89,7 @@ public class ProductController {
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
+        productService.assertPublicProductAccessible(id);
         return ApiResponse.ok(reviewService.listReviews(id, rating, page, size));
     }
 
@@ -99,6 +101,7 @@ public class ProductController {
                     LocalDateTime cursorTime,
             @RequestParam(required = false) Long cursorId,
             @RequestParam(required = false) Integer size) {
+        productService.assertPublicProductAccessible(id);
         return ApiResponse.ok(reviewService.listReviewsCursor(id, rating, cursorTime, cursorId, size));
     }
 }

@@ -1,6 +1,8 @@
 package com.shixi.ecommerce.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.common.ApiResponse;
+import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.dto.InventoryBatchRequest;
 import com.shixi.ecommerce.dto.InventoryDeductRequest;
 import com.shixi.ecommerce.dto.InventoryReleaseRequest;
@@ -11,7 +13,9 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -26,10 +30,13 @@ public class InventoryClient {
 
     private final RestTemplate restTemplate;
     private final String baseUrl;
+    private final ObjectMapper objectMapper;
 
-    public InventoryClient(RestTemplate restTemplate, @Value("${inventory.service.url}") String baseUrl) {
+    public InventoryClient(
+            RestTemplate restTemplate, @Value("${inventory.service.url}") String baseUrl, ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -43,12 +50,13 @@ public class InventoryClient {
         InventoryDeductRequest request = new InventoryDeductRequest();
         request.setSkuId(skuId);
         request.setQuantity(quantity);
-        ApiResponse<?> response =
-                restTemplate.postForObject(baseUrl + "/internal/inventory/deduct", request, ApiResponse.class);
-        if (response == null || !response.isSuccess() || response.getData() == null) {
-            return false;
+        try {
+            ApiResponse<?> response =
+                    restTemplate.postForObject(baseUrl + "/internal/inventory/deduct", request, ApiResponse.class);
+            return parseDeductResponse(response);
+        } catch (HttpStatusCodeException ex) {
+            throw translateHttpException(ex);
         }
-        return Boolean.parseBoolean(String.valueOf(response.getData()));
     }
 
     /**
@@ -69,12 +77,13 @@ public class InventoryClient {
                     return req;
                 })
                 .toList());
-        ApiResponse<?> response =
-                restTemplate.postForObject(baseUrl + "/internal/inventory/deduct-batch", request, ApiResponse.class);
-        if (response == null || !response.isSuccess() || response.getData() == null) {
-            return false;
+        try {
+            ApiResponse<?> response = restTemplate.postForObject(
+                    baseUrl + "/internal/inventory/deduct-batch", request, ApiResponse.class);
+            return parseDeductResponse(response);
+        } catch (HttpStatusCodeException ex) {
+            throw translateHttpException(ex);
         }
-        return Boolean.parseBoolean(String.valueOf(response.getData()));
     }
 
     /**
@@ -87,7 +96,13 @@ public class InventoryClient {
         InventoryReleaseRequest request = new InventoryReleaseRequest();
         request.setSkuId(skuId);
         request.setQuantity(quantity);
-        restTemplate.postForObject(baseUrl + "/internal/inventory/release", request, ApiResponse.class);
+        try {
+            ApiResponse<?> response =
+                    restTemplate.postForObject(baseUrl + "/internal/inventory/release", request, ApiResponse.class);
+            validateCompensationResponse(response);
+        } catch (HttpStatusCodeException ex) {
+            throw translateHttpException(ex);
+        }
     }
 
     /**
@@ -107,15 +122,81 @@ public class InventoryClient {
                     return req;
                 })
                 .toList());
-        restTemplate.postForObject(baseUrl + "/internal/inventory/release-batch", request, ApiResponse.class);
+        try {
+            ApiResponse<?> response = restTemplate.postForObject(
+                    baseUrl + "/internal/inventory/release-batch", request, ApiResponse.class);
+            validateCompensationResponse(response);
+        } catch (HttpStatusCodeException ex) {
+            throw translateHttpException(ex);
+        }
     }
 
     private boolean deductBatchFallback(List<OrderLineItem> items, Throwable ex) {
+        BusinessException businessException = unwrapBusinessException(ex);
+        if (businessException != null) {
+            throw businessException;
+        }
         throw new IllegalStateException("Inventory service unavailable", ex);
     }
 
     private void releaseBatchFallback(List<OrderLineItem> items, Throwable ex) {
         log.error("Inventory release failed, items={}", items, ex);
         throw new IllegalStateException("Inventory compensation failed", ex);
+    }
+
+    private boolean parseDeductResponse(ApiResponse<?> response) {
+        if (response == null || response.getData() == null) {
+            throw new IllegalStateException("Inventory service unavailable");
+        }
+        if (!response.isSuccess()) {
+            throw new BusinessException(resolveMessage(response.getMessage(), "Inventory request rejected"));
+        }
+        return Boolean.parseBoolean(String.valueOf(response.getData()));
+    }
+
+    private void validateCompensationResponse(ApiResponse<?> response) {
+        if (response == null) {
+            throw new IllegalStateException("Inventory compensation failed");
+        }
+        if (!response.isSuccess()) {
+            throw new BusinessException(resolveMessage(response.getMessage(), "Inventory compensation rejected"));
+        }
+    }
+
+    private RuntimeException translateHttpException(HttpStatusCodeException ex) {
+        HttpStatusCode statusCode = ex.getStatusCode();
+        if (statusCode.is4xxClientError()) {
+            return new BusinessException(extractBusinessMessage(ex));
+        }
+        return ex;
+    }
+
+    private String extractBusinessMessage(HttpStatusCodeException ex) {
+        try {
+            ApiResponse<?> apiResponse = objectMapper.readValue(ex.getResponseBodyAsByteArray(), ApiResponse.class);
+            if (apiResponse != null) {
+                return resolveMessage(apiResponse.getMessage(), "Inventory request rejected");
+            }
+        } catch (Exception ignored) {
+        }
+        return "Inventory request rejected";
+    }
+
+    private String resolveMessage(String message, String fallback) {
+        if (message == null || message.isBlank()) {
+            return fallback;
+        }
+        return message;
+    }
+
+    private BusinessException unwrapBusinessException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof BusinessException businessException) {
+                return businessException;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 }

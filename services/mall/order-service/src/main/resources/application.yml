@@ -67,6 +67,10 @@ product:
     # 订单服务直接访问商品服务查询快照信息，不经过网关。
     url: ${MALL_PRODUCT_SERVICE_URL:http://localhost:18082}
 
+auth:
+  service:
+    url: ${MALL_AUTH_SERVICE_URL:http://localhost:18081}
+
 logistics:
   provider: ${LOGISTICS_PROVIDER:mock}
   api:
@@ -96,6 +100,8 @@ logging:
     root: INFO
 
 order:
+  duplicate:
+    guard-ttl: ${ORDER_DUPLICATE_GUARD_TTL:15s}
   rate-limit:
     window-seconds: ${ORDER_RATE_WINDOW:60}
     user-max: ${ORDER_RATE_USER_MAX:30}

@@ -19,6 +19,12 @@ public interface UserAddressRepository extends JpaRepository<UserAddress, Long> 
 
     Optional<UserAddress> findByIdAndUserId(Long id, Long userId);
 
+    Optional<UserAddress> findFirstByUserIdAndIsDefaultTrueOrderByIdDesc(Long userId);
+
+    Optional<UserAddress> findTopByUserIdAndIdNotOrderByIdDesc(Long userId, Long id);
+
+    boolean existsByUserIdAndIsDefaultTrue(Long userId);
+
     long countByUserId(Long userId);
 
     @Modifying

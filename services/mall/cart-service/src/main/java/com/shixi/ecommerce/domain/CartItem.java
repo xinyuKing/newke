@@ -36,6 +36,12 @@ public class CartItem {
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal priceSnapshot;
 
+    @Column(length = 128)
+    private String productNameSnapshot;
+
+    @Column(length = 512)
+    private String productDescriptionSnapshot;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -85,6 +91,22 @@ public class CartItem {
 
     public void setPriceSnapshot(BigDecimal priceSnapshot) {
         this.priceSnapshot = priceSnapshot;
+    }
+
+    public String getProductNameSnapshot() {
+        return productNameSnapshot;
+    }
+
+    public void setProductNameSnapshot(String productNameSnapshot) {
+        this.productNameSnapshot = productNameSnapshot;
+    }
+
+    public String getProductDescriptionSnapshot() {
+        return productDescriptionSnapshot;
+    }
+
+    public void setProductDescriptionSnapshot(String productDescriptionSnapshot) {
+        this.productDescriptionSnapshot = productDescriptionSnapshot;
     }
 
     public LocalDateTime getCreatedAt() {

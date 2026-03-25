@@ -1,15 +1,22 @@
 package com.shixi.ecommerce.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.domain.AfterSaleStatus;
 import com.shixi.ecommerce.domain.AfterSaleTicket;
 import com.shixi.ecommerce.dto.AfterSaleCreateRequest;
+import com.shixi.ecommerce.dto.AfterSaleEvidenceRequest;
 import com.shixi.ecommerce.dto.AfterSaleResponse;
 import com.shixi.ecommerce.dto.OrderItemResponse;
 import com.shixi.ecommerce.dto.OrderRefundSnapshotResponse;
 import com.shixi.ecommerce.repository.AfterSaleTicketRepository;
 import com.shixi.ecommerce.service.order.OrderAccessService;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -28,21 +35,28 @@ public class AfterSaleService {
     private static final String CREATE_LOCK_ERROR_MESSAGE = "After-sale request coordination unavailable";
     private static final Set<AfterSaleStatus> CONSUMING_STATUSES =
             EnumSet.complementOf(EnumSet.of(AfterSaleStatus.REJECTED));
+    private static final Set<AfterSaleStatus> EVIDENCE_EDITABLE_STATUSES =
+            EnumSet.of(AfterSaleStatus.INIT, AfterSaleStatus.WAIT_PROOF, AfterSaleStatus.REVIEWING);
+    private static final Set<AfterSaleStatus> ORDER_SYNC_STATUSES =
+            EnumSet.of(AfterSaleStatus.APPROVED, AfterSaleStatus.REFUNDED);
 
     private final AfterSaleTicketRepository repository;
     private final OrderAccessService orderAccessService;
     private final AfterSaleStateMachine stateMachine;
     private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
     public AfterSaleService(
             AfterSaleTicketRepository repository,
             OrderAccessService orderAccessService,
             AfterSaleStateMachine stateMachine,
-            StringRedisTemplate redisTemplate) {
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper) {
         this.repository = repository;
         this.orderAccessService = orderAccessService;
         this.stateMachine = stateMachine;
         this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -60,6 +74,7 @@ public class AfterSaleService {
             ticket.setOrderNo(request.getOrderNo());
             ticket.setSkuId(request.getSkuId());
             ticket.setQuantity(resolveQuantity(request, snapshot, existingTickets));
+            applyProductSnapshot(ticket, findOrderItem(snapshot, request.getSkuId()));
             ticket.setReason(request.getReason());
             ticket.setStatus(AfterSaleStatus.INIT);
             repository.save(ticket);
@@ -90,11 +105,36 @@ public class AfterSaleService {
         AfterSaleTicket ticket =
                 repository.findById(id).orElseThrow(() -> new BusinessException("After-sale not found"));
         stateMachine.assertTransition(ticket.getStatus(), status);
+        validateEvidenceTransition(ticket, status);
         if (ticket.getStatus() != status) {
             ticket.setStatus(status);
             repository.saveAndFlush(ticket);
-            orderAccessService.syncAfterSaleStatus(ticket.getOrderNo(), status);
+            if (ORDER_SYNC_STATUSES.contains(status)) {
+                orderAccessService.syncAfterSaleStatus(ticket, repository.findAllByOrderNo(ticket.getOrderNo()));
+            }
         }
+        return toResponse(ticket);
+    }
+
+    @Transactional
+    public AfterSaleResponse submitEvidence(Long userId, Long id, AfterSaleEvidenceRequest request) {
+        AfterSaleTicket ticket = repository
+                .findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new BusinessException("After-sale not found"));
+        if (!EVIDENCE_EDITABLE_STATUSES.contains(ticket.getStatus())) {
+            throw new BusinessException("Current after-sale status does not accept evidence");
+        }
+        String evidenceNote = normalizeEvidenceNote(request == null ? null : request.getEvidenceNote());
+        List<String> evidenceUrls = normalizeEvidenceUrls(request == null ? null : request.getEvidenceUrls());
+        if ((evidenceNote == null || evidenceNote.isBlank()) && evidenceUrls.isEmpty()) {
+            throw new BusinessException("Evidence note or URL required");
+        }
+        ticket.setEvidenceNote(evidenceNote);
+        ticket.setEvidenceUrlsJson(writeEvidenceUrls(evidenceUrls));
+        if (ticket.getStatus() == AfterSaleStatus.INIT || ticket.getStatus() == AfterSaleStatus.WAIT_PROOF) {
+            ticket.setStatus(AfterSaleStatus.REVIEWING);
+        }
+        repository.saveAndFlush(ticket);
         return toResponse(ticket);
     }
 
@@ -194,9 +234,101 @@ public class AfterSaleService {
                 ticket.getOrderNo(),
                 ticket.getSkuId(),
                 ticket.getQuantity(),
+                ticket.getProductNameSnapshot(),
+                ticket.getProductDescriptionSnapshot(),
                 ticket.getReason(),
+                ticket.getEvidenceNote(),
+                readEvidenceUrls(ticket),
                 ticket.getStatus(),
                 ticket.getCreatedAt());
+    }
+
+    private void applyProductSnapshot(AfterSaleTicket ticket, OrderItemResponse orderItem) {
+        if (ticket == null || orderItem == null) {
+            return;
+        }
+        ticket.setProductNameSnapshot(orderItem.getProductName());
+        ticket.setProductDescriptionSnapshot(orderItem.getProductDescription());
+    }
+
+    private void validateEvidenceTransition(AfterSaleTicket ticket, AfterSaleStatus targetStatus) {
+        if (ticket.getStatus() == AfterSaleStatus.WAIT_PROOF
+                && targetStatus == AfterSaleStatus.REVIEWING
+                && !hasEvidence(ticket)) {
+            throw new BusinessException("Evidence required before review");
+        }
+    }
+
+    private boolean hasEvidence(AfterSaleTicket ticket) {
+        return (ticket.getEvidenceNote() != null && !ticket.getEvidenceNote().isBlank())
+                || !readEvidenceUrls(ticket).isEmpty();
+    }
+
+    private String normalizeEvidenceNote(String evidenceNote) {
+        if (evidenceNote == null) {
+            return null;
+        }
+        String normalized = evidenceNote.trim();
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private List<String> normalizeEvidenceUrls(List<String> evidenceUrls) {
+        if (evidenceUrls == null || evidenceUrls.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String evidenceUrl : evidenceUrls) {
+            if (evidenceUrl == null) {
+                continue;
+            }
+            String trimmed = evidenceUrl.trim();
+            if (!trimmed.isEmpty()) {
+                normalized.add(normalizeEvidenceUrl(trimmed));
+            }
+        }
+        return normalized;
+    }
+
+    private String normalizeEvidenceUrl(String evidenceUrl) {
+        try {
+            URI uri = new URI(evidenceUrl);
+            String scheme = uri.getScheme();
+            if (scheme == null
+                    || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))
+                    || uri.getHost() == null
+                    || uri.getHost().isBlank()) {
+                throw new BusinessException("Evidence URL must be an absolute http(s) link");
+            }
+            return uri.toASCIIString();
+        } catch (URISyntaxException ex) {
+            throw new BusinessException("Evidence URL must be a valid link");
+        }
+    }
+
+    private List<String> readEvidenceUrls(AfterSaleTicket ticket) {
+        if (ticket == null
+                || ticket.getEvidenceUrlsJson() == null
+                || ticket.getEvidenceUrlsJson().isBlank()) {
+            return List.of();
+        }
+        try {
+            List<String> evidenceUrls =
+                    objectMapper.readValue(ticket.getEvidenceUrlsJson(), new TypeReference<List<String>>() {});
+            if (evidenceUrls == null || evidenceUrls.isEmpty()) {
+                return List.of();
+            }
+            return Collections.unmodifiableList(evidenceUrls);
+        } catch (Exception ex) {
+            throw new BusinessException("After-sale evidence corrupted");
+        }
+    }
+
+    private String writeEvidenceUrls(List<String> evidenceUrls) {
+        try {
+            return objectMapper.writeValueAsString(evidenceUrls == null ? List.of() : evidenceUrls);
+        } catch (Exception ex) {
+            throw new BusinessException("Unable to save after-sale evidence");
+        }
     }
 
     private String createLockKey(String orderNo) {

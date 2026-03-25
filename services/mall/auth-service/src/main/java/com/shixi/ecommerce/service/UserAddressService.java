@@ -2,6 +2,7 @@ package com.shixi.ecommerce.service;
 
 import com.shixi.ecommerce.common.BusinessException;
 import com.shixi.ecommerce.domain.UserAddress;
+import com.shixi.ecommerce.dto.OrderAddressSnapshotResponse;
 import com.shixi.ecommerce.dto.UserAddressRequest;
 import com.shixi.ecommerce.dto.UserAddressResponse;
 import com.shixi.ecommerce.repository.UserAddressRepository;
@@ -70,6 +71,7 @@ public class UserAddressService {
     public UserAddressResponse update(Long userId, Long id, UserAddressRequest request) {
         UserAddress address =
                 repository.findByIdAndUserId(id, userId).orElseThrow(() -> new BusinessException("Address not found"));
+        boolean wasDefault = address.isDefault();
         apply(address, request);
         if (Boolean.TRUE.equals(request.getIsDefault())) {
             repository.clearDefault(userId);
@@ -78,6 +80,9 @@ public class UserAddressService {
             address.setDefault(false);
         }
         repository.save(address);
+        if (wasDefault && Boolean.FALSE.equals(request.getIsDefault())) {
+            assignReplacementDefault(userId, id, id);
+        }
         return toResponse(address);
     }
 
@@ -94,13 +99,7 @@ public class UserAddressService {
         boolean wasDefault = address.isDefault();
         repository.delete(address);
         if (wasDefault) {
-            List<UserAddress> remaining = repository.findByUserIdOrderByIsDefaultDescIdDesc(userId);
-            if (!remaining.isEmpty()) {
-                repository.clearDefault(userId);
-                UserAddress first = remaining.get(0);
-                first.setDefault(true);
-                repository.save(first);
-            }
+            assignReplacementDefault(userId, id, null);
         }
     }
 
@@ -119,6 +118,14 @@ public class UserAddressService {
         repository.save(address);
     }
 
+    @Transactional(readOnly = true)
+    public OrderAddressSnapshotResponse getDefaultSnapshot(Long userId) {
+        UserAddress address = repository
+                .findFirstByUserIdAndIsDefaultTrueOrderByIdDesc(userId)
+                .orElseThrow(() -> new BusinessException("Default shipping address required"));
+        return toSnapshot(address);
+    }
+
     private void apply(UserAddress address, UserAddressRequest request) {
         address.setReceiverName(request.getReceiverName());
         address.setReceiverPhone(request.getReceiverPhone());
@@ -128,9 +135,28 @@ public class UserAddressService {
         address.setDetailAddress(request.getDetailAddress());
         address.setPostalCode(request.getPostalCode());
         address.setTag(request.getTag());
-        if (request.getIsDefault() != null) {
-            address.setDefault(request.getIsDefault());
+    }
+
+    private void assignReplacementDefault(Long userId, Long excludedId, Long fallbackId) {
+        if (repository.existsByUserIdAndIsDefaultTrue(userId)) {
+            return;
         }
+        repository
+                .findTopByUserIdAndIdNotOrderByIdDesc(userId, excludedId)
+                .ifPresentOrElse(
+                        address -> {
+                            address.setDefault(true);
+                            repository.save(address);
+                        },
+                        () -> {
+                            if (fallbackId == null) {
+                                return;
+                            }
+                            repository.findByIdAndUserId(fallbackId, userId).ifPresent(address -> {
+                                address.setDefault(true);
+                                repository.save(address);
+                            });
+                        });
     }
 
     private UserAddressResponse toResponse(UserAddress address) {
@@ -147,5 +173,17 @@ public class UserAddressService {
                 address.getTag(),
                 address.isDefault(),
                 address.getCreatedAt());
+    }
+
+    private OrderAddressSnapshotResponse toSnapshot(UserAddress address) {
+        return new OrderAddressSnapshotResponse(
+                address.getReceiverName(),
+                address.getReceiverPhone(),
+                address.getProvince(),
+                address.getCity(),
+                address.getDistrict(),
+                address.getDetailAddress(),
+                address.getPostalCode(),
+                address.getTag());
     }
 }

@@ -42,7 +42,10 @@ security:
 
 internal:
   auth:
-    enabled: false
+    enabled: true
+    secret: ${INTERNAL_API_SECRET}
+    allowed-callers:
+      - order-service
 
 community:
   user-service:

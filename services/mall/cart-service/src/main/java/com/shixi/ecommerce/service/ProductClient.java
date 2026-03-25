@@ -8,7 +8,6 @@ import io.github.resilience4j.retry.annotation.Retry;
 import java.util.Arrays;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -44,10 +43,6 @@ public class ProductClient {
      * @param skuIds 商品 ID 列表
      * @return 商品信息列表
      */
-    @Cacheable(
-            cacheNames = "productClientCache",
-            key = "#skuIds",
-            condition = "#skuIds != null && #skuIds.size() <= 50")
     @CircuitBreaker(name = "productClient", fallbackMethod = "getProductsFallback")
     @Retry(name = "productClient")
     @Bulkhead(name = "productClient")

@@ -3,32 +3,48 @@ package com.shixi.ecommerce.dto;
 import java.math.BigDecimal;
 
 /**
- * 订单行数据传输对象，供下单与库存批量接口使用。
+ * Order line item DTO shared by order creation and inventory batch APIs.
  *
  * @author shixi
  * @date 2026-03-20
  */
 public class OrderLineItem {
-    /** 商品 ID。 */
+    /** Product sku id. */
     private Long skuId;
-    /** 购买数量。 */
+    /** Purchase quantity. */
     private Integer quantity;
-    /** 单价（服务端定价后写入）。 */
+    /** Unit price after server-side pricing. */
     private BigDecimal price;
 
     private Long merchantId;
 
+    private String productName;
+
+    private String productDescription;
+
     public OrderLineItem() {}
 
     public OrderLineItem(Long skuId, Integer quantity, BigDecimal price) {
-        this(skuId, quantity, price, null);
+        this(skuId, quantity, price, null, null, null);
     }
 
     public OrderLineItem(Long skuId, Integer quantity, BigDecimal price, Long merchantId) {
+        this(skuId, quantity, price, merchantId, null, null);
+    }
+
+    public OrderLineItem(
+            Long skuId,
+            Integer quantity,
+            BigDecimal price,
+            Long merchantId,
+            String productName,
+            String productDescription) {
         this.skuId = skuId;
         this.quantity = quantity;
         this.price = price;
         this.merchantId = merchantId;
+        this.productName = productName;
+        this.productDescription = productDescription;
     }
 
     public Long getSkuId() {
@@ -61,5 +77,21 @@ public class OrderLineItem {
 
     public void setMerchantId(Long merchantId) {
         this.merchantId = merchantId;
+    }
+
+    public String getProductName() {
+        return productName;
+    }
+
+    public void setProductName(String productName) {
+        this.productName = productName;
+    }
+
+    public String getProductDescription() {
+        return productDescription;
+    }
+
+    public void setProductDescription(String productDescription) {
+        this.productDescription = productDescription;
     }
 }

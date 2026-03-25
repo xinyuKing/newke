@@ -8,6 +8,7 @@ import com.shixi.ecommerce.domain.CheckoutRecord;
 import com.shixi.ecommerce.dto.OrderLineItem;
 import com.shixi.ecommerce.repository.CartItemRepository;
 import com.shixi.ecommerce.repository.CheckoutRecordRepository;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +83,9 @@ public class CheckoutRecordService {
             if (current == null) {
                 continue;
             }
+            if (isReducedAfterSnapshot(record.getCreatedAt(), current, snapshotItem)) {
+                continue;
+            }
             int remaining = current.getQuantity() - snapshotItem.getQuantity();
             if (remaining > 0) {
                 current.setQuantity(remaining);
@@ -121,13 +125,33 @@ public class CheckoutRecordService {
 
     private String writeItems(List<CartItem> items) {
         List<OrderLineItem> snapshotItems = items.stream()
-                .map(item -> new OrderLineItem(item.getSkuId(), item.getQuantity(), item.getPriceSnapshot()))
+                .map(item -> new OrderLineItem(
+                        item.getSkuId(),
+                        item.getQuantity(),
+                        item.getPriceSnapshot(),
+                        null,
+                        item.getProductNameSnapshot(),
+                        item.getProductDescriptionSnapshot()))
                 .toList();
         try {
             return objectMapper.writeValueAsString(snapshotItems);
         } catch (Exception ex) {
             throw new BusinessException("Checkout snapshot creation failed");
         }
+    }
+
+    private boolean isReducedAfterSnapshot(
+            LocalDateTime snapshotCreatedAt, CartItem current, OrderLineItem snapshotItem) {
+        if (snapshotCreatedAt == null
+                || current == null
+                || current.getUpdatedAt() == null
+                || current.getQuantity() == null
+                || snapshotItem == null
+                || snapshotItem.getQuantity() == null) {
+            return false;
+        }
+        return current.getQuantity() < snapshotItem.getQuantity()
+                && current.getUpdatedAt().isAfter(snapshotCreatedAt);
     }
 
     private String buildBizKey(Long userId, String idempotencyKey) {

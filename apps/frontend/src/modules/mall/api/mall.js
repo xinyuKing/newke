@@ -9,6 +9,35 @@ const mallApi = axios.create({
   timeout: 10000
 });
 
+const toFailureResponse = (error) => {
+  const response = error?.response;
+  const responseData = response?.data;
+  const fallbackMessage =
+    response?.statusText ||
+    error?.message ||
+    "Network unavailable. Please retry.";
+  const normalizedData =
+    responseData && typeof responseData === "object"
+      ? {
+          ...responseData,
+          success: false,
+          message: responseData.message || fallbackMessage
+        }
+      : {
+          success: false,
+          message: fallbackMessage
+        };
+
+  return {
+    data: normalizedData,
+    status: response?.status || 0,
+    statusText: response?.statusText || "ERROR",
+    headers: response?.headers || {},
+    config: error?.config,
+    request: response?.request || error?.request
+  };
+};
+
 mallApi.interceptors.request.use((config) => {
   const token = localStorage.getItem(MALL_TOKEN_KEY);
   if (token) {
@@ -25,7 +54,7 @@ mallApi.interceptors.response.use(
       localStorage.removeItem(MALL_TOKEN_KEY);
       localStorage.removeItem(MALL_ROLE_KEY);
     }
-    return Promise.reject(error);
+    return Promise.resolve(toFailureResponse(error));
   }
 );
 

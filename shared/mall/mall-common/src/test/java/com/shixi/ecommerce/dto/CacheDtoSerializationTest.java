@@ -41,13 +41,37 @@ class CacheDtoSerializationTest {
         CursorPageResponse<ReviewResponse> restored = objectMapper.readValue(
                 objectMapper.writeValueAsString(source), new TypeReference<CursorPageResponse<ReviewResponse>>() {});
         CartItemResponse cartItem = objectMapper.readValue(
-                objectMapper.writeValueAsString(new CartItemResponse(1001L, 2, new BigDecimal("88.00"))),
+                objectMapper.writeValueAsString(new CartItemResponse(
+                        1001L,
+                        2,
+                        new BigDecimal("88.00"),
+                        "Keyboard",
+                        "Mechanical keyboard",
+                        ProductStatus.ACTIVE,
+                        true)),
                 CartItemResponse.class);
+        OrderAddressSnapshotResponse shippingAddress = objectMapper.readValue(
+                objectMapper.writeValueAsString(new OrderAddressSnapshotResponse(
+                        "Alice",
+                        "13800000000",
+                        "Shanghai",
+                        "Shanghai",
+                        "Pudong",
+                        "No. 1 Century Avenue",
+                        "200120",
+                        "Home")),
+                OrderAddressSnapshotResponse.class);
 
         assertEquals(1, restored.getItems().size());
         assertTrue(restored.isHasNext());
         assertEquals(11L, restored.getNextCursorId());
         assertEquals(1001L, cartItem.getSkuId());
         assertEquals(2, cartItem.getQuantity());
+        assertEquals("Keyboard", cartItem.getProductName());
+        assertEquals("Mechanical keyboard", cartItem.getProductDescription());
+        assertEquals(ProductStatus.ACTIVE, cartItem.getProductStatus());
+        assertTrue(cartItem.getProductAvailable());
+        assertEquals("Alice", shippingAddress.getReceiverName());
+        assertEquals("No. 1 Century Avenue", shippingAddress.getDetailAddress());
     }
 }

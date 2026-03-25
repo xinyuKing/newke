@@ -2,7 +2,7 @@
   <section class="page-stack">
     <div v-if="!auth.mallCanShop" class="empty card">
       <h3>Shopper role required</h3>
-      <p>订单详情、支付确认和收货操作都需要商城 `USER` 角色登录态。</p>
+      <p>订单详情、支付确认和收货操作都需要使用带有 `USER` 角色的账号登录。</p>
       <RouterLink class="ghost" :to="`/login?redirect=/mall/orders/${route.params.orderNo}`">Login to continue</RouterLink>
     </div>
 
@@ -33,8 +33,8 @@
             <h3>Items</h3>
             <article v-for="item in detail.items || []" :key="item.skuId" class="item-row">
               <div>
-                <strong>{{ productMap[item.skuId]?.name || `Product ${item.skuId}` }}</strong>
-                <p class="muted">{{ productMap[item.skuId]?.description || "Description will appear when the product service returns data." }}</p>
+                <strong>{{ resolveItemName(item) }}</strong>
+                <p class="muted">{{ resolveItemDescription(item) }}</p>
               </div>
               <div class="item-side">
                 <span>x{{ item.quantity }}</span>
@@ -44,6 +44,23 @@
           </section>
 
           <section class="card logistics">
+            <h3>Shipping</h3>
+            <div v-if="detail.shippingAddress" class="shipping-block">
+              <div class="shipping-head">
+                <strong>{{ detail.shippingAddress.receiverName || "Receiver pending" }}</strong>
+                <span>{{ detail.shippingAddress.receiverPhone || "--" }}</span>
+              </div>
+              <p>{{ formatShippingAddress(detail.shippingAddress) }}</p>
+              <span v-if="detail.shippingAddress.tag" class="shipping-tag">{{ detail.shippingAddress.tag }}</span>
+              <span v-if="detail.shippingAddress.postalCode" class="muted">
+                Postal code {{ detail.shippingAddress.postalCode }}
+              </span>
+            </div>
+            <div v-else class="empty-note">
+              Shipping address snapshot unavailable for this order.
+            </div>
+
+            <div class="section-divider"></div>
             <h3>Tracking</h3>
             <div class="logi-head">
               <span>Carrier {{ detail.carrierCode || tracking?.carrierCode || "--" }}</span>
@@ -84,13 +101,43 @@ const loading = ref(false);
 const message = ref("");
 const productMap = reactive({});
 
-const hydrateProducts = async (skuIds) => {
-  const uniqueIds = [...new Set((skuIds || []).filter(Boolean))];
-  await Promise.all(
+const clearProductMap = () => {
+  Object.keys(productMap).forEach((key) => {
+    delete productMap[key];
+  });
+};
+
+const resolveItemName = (item) => item?.productName || productMap[item?.skuId]?.name || `Product ${item?.skuId}`;
+
+const resolveItemDescription = (item) =>
+  item?.productDescription ||
+  productMap[item?.skuId]?.description ||
+  "Description snapshot unavailable for this order.";
+
+const formatShippingAddress = (address) => {
+  if (!address) return "Shipping address snapshot unavailable for this order.";
+  return [
+    [address.province, address.city, address.district].filter(Boolean).join(" "),
+    address.detailAddress
+  ]
+    .filter(Boolean)
+    .join(", ");
+};
+
+const hydrateProducts = async (items) => {
+  const uniqueIds = [
+    ...new Set(
+      (items || [])
+        .filter((item) => item?.skuId && (!item?.productName || !item?.productDescription))
+        .map((item) => item.skuId)
+    )
+  ];
+
+  await Promise.allSettled(
     uniqueIds.map(async (skuId) => {
       if (productMap[skuId]) return;
       const { data } = await mallApi.get(`/products/${skuId}`);
-      if (data?.success) {
+      if (data?.success && data.data) {
         productMap[skuId] = data.data;
       }
     })
@@ -101,10 +148,11 @@ const loadOrder = async () => {
   if (!auth.mallCanShop) return;
   loading.value = true;
   try {
+    clearProductMap();
     const { data } = await mallApi.get(`/user/orders/${route.params.orderNo}`);
     detail.value = data?.success ? data.data : null;
     if (detail.value?.items?.length) {
-      await hydrateProducts(detail.value.items.map((item) => item.skuId));
+      await hydrateProducts(detail.value.items);
     }
     if (detail.value?.trackingNo || detail.value?.status === "SHIPPED" || detail.value?.status === "COMPLETED") {
       const trackingResp = await mallApi.get(`/user/orders/${route.params.orderNo}/tracking`);
@@ -234,6 +282,38 @@ onMounted(loadOrder);
   flex-direction: column;
   gap: 4px;
   color: var(--muted);
+}
+
+.shipping-block {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.shipping-block p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.shipping-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.shipping-tag {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(42, 157, 143, 0.1);
+  color: var(--accent-2);
+  font-size: 0.9rem;
+}
+
+.section-divider {
+  height: 1px;
+  background: var(--border);
 }
 
 .timeline {

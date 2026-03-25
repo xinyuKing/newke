@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -37,8 +38,20 @@ public class AfterSaleTicket {
 
     private Integer quantity;
 
+    @Column(length = 128)
+    private String productNameSnapshot;
+
+    @Column(length = 512)
+    private String productDescriptionSnapshot;
+
     @Column(nullable = false, length = 256)
     private String reason;
+
+    @Column(length = 512)
+    private String evidenceNote;
+
+    @Lob
+    private String evidenceUrlsJson;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -95,12 +108,44 @@ public class AfterSaleTicket {
         this.quantity = quantity;
     }
 
+    public String getProductNameSnapshot() {
+        return productNameSnapshot;
+    }
+
+    public void setProductNameSnapshot(String productNameSnapshot) {
+        this.productNameSnapshot = productNameSnapshot;
+    }
+
+    public String getProductDescriptionSnapshot() {
+        return productDescriptionSnapshot;
+    }
+
+    public void setProductDescriptionSnapshot(String productDescriptionSnapshot) {
+        this.productDescriptionSnapshot = productDescriptionSnapshot;
+    }
+
     public String getReason() {
         return reason;
     }
 
     public void setReason(String reason) {
         this.reason = reason;
+    }
+
+    public String getEvidenceNote() {
+        return evidenceNote;
+    }
+
+    public void setEvidenceNote(String evidenceNote) {
+        this.evidenceNote = evidenceNote;
+    }
+
+    public String getEvidenceUrlsJson() {
+        return evidenceUrlsJson;
+    }
+
+    public void setEvidenceUrlsJson(String evidenceUrlsJson) {
+        this.evidenceUrlsJson = evidenceUrlsJson;
     }
 
     public AfterSaleStatus getStatus() {
